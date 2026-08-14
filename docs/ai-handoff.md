@@ -17,7 +17,8 @@
 - `internal/routing`：候选排序、会话亲和、失败切换和 Provider gate。
 - `internal/governance`：allow/deny、快照、审计和撤销。
 - `internal/api`：管理 API、协议转发、观测与复盘接口。
-- `frontend`：Vue 控制台源码。
+- `frontend`：Vue 控制台源码。应用壳采用移动优先布局：手机/平板为顶栏与分组抽屉，桌面为固定分组侧栏；列表在手机端卡片化。
+- `frontend/src/styles/workspace.css`：New API 风格的浅色实体面板、响应式断点与移动触控规范；作为 `app.css` 后加载的重构层。
 - `ops`、`scripts`：发布前置、watchdog、契约审计和浏览器冒烟。
 
 ## 3. 数据与安全
@@ -60,7 +61,7 @@ curl -fsS http://127.0.0.1:<port>/health/ready
 ## 6. GitHub 发布流程
 
 - 分支：`main`。
-- 建议首个正式 tag：`v0.1.0`。
+- 当前正式发布线从 `v0.1.0` 起；前端移动优先重构版本为 `v0.3.0`。
 - 发布前检查 staged diff、`git grep`、`.env`/`data` 是否被忽略、Compose 是否只挂载 `/data`。
 - 使用 `GH_TOKEN` 调 GitHub API 创建公开仓库、配置 origin、push main、创建 tag 和 Release；绝不输出 token。
 - Release notes 应说明：独立产品边界、Docker 启动、通用 Provider、FreeLLMAPI 可选适配、路由能力、测试限制和已知限制。

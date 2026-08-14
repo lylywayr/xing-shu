@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { mobileMore, mobilePrimary, navGroups } from './navigation'
+import { allNavItems, navGroups } from './navigation'
 
 describe('navigation model', () => {
-  it('keeps mobile navigation to four primary entries', () => {
-    expect(mobilePrimary).toHaveLength(4)
-    expect(mobilePrimary.map(item => item.key)).toEqual(['overview', 'resources', 'catalog', 'reviews'])
+  it('groups every workspace page exactly once', () => {
+    const keys = allNavItems.map(item => item.key)
+    expect(new Set(keys).size).toBe(keys.length)
+    expect(keys).toHaveLength(14)
   })
-  it('puts every secondary page in the more menu exactly once', () => {
-    const all = navGroups.flatMap(group => group.items).map(item => item.key)
-    expect(new Set(all).size).toBe(all.length)
-    expect(mobileMore.map(item => item.key)).not.toContain('overview')
-    expect(mobileMore.map(item => item.key)).not.toContain('reviews')
-    expect(mobileMore.length).toBe(all.length - mobilePrimary.length)
+
+  it('keeps the most important mobile workspaces easy to scan', () => {
+    expect(navGroups.map(group => group.label)).toEqual(['工作台', '模型服务', '路由治理', '学习闭环', '系统运维'])
+    expect(allNavItems.find(item => item.key === 'overview')?.description).toBe('健康与关键指标')
+    expect(allNavItems.find(item => item.key === 'catalog')?.description).toBe('模型与能力')
+    expect(allNavItems.find(item => item.key === 'routing')?.description).toBe('Explain 与决策')
   })
 })
