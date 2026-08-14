@@ -1,0 +1,31 @@
+# Secrets and local deployment state
+.env
+.env.*
+!.env.example
+
+# Runtime state and local databases
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.jsonl
+*.log
+
+# Build and dependency output
+web-dist/
+node_modules/
+frontend/node_modules/
+coverage/
+
+# Local/editor/system files
+.DS_Store
+.vscode/
+.idea/
+*.tmp
+*.swp
+
+# Archives and generated reports
+*.tar
+*.tar.gz
+*.zip
+ops/__pycache__/

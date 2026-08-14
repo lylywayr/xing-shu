@@ -1,0 +1,42 @@
+services:
+  starcore:
+    build:
+      context: .
+      args:
+        GOPROXY: ${GOPROXY:-https://proxy.golang.org,direct}
+    image: ${STARCORE_IMAGE:-xing-shu:latest}
+    container_name: ${STARCORE_CONTAINER_NAME:-xing-shu}
+    ports:
+      - "${STARCORE_PORT:-12100}:12100"
+    environment:
+      STARCORE_DATA_DIR: /data
+      STARCORE_NATIVE_CHAT: ${STARCORE_NATIVE_CHAT:-true}
+      LISTEN: ":12100"
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
+      STARCORE_ADMIN_USER: ${STARCORE_ADMIN_USER:-}
+      STARCORE_ADMIN_PASSWORD: ${STARCORE_ADMIN_PASSWORD:-}
+      FREELLMAPI_URL: ${FREELLMAPI_URL:-}
+      FREELLMAPI_KEY: ${FREELLMAPI_KEY:-}
+      FREELLMAPI_DB_PATH: ${FREELLMAPI_DB_PATH:-}
+      PROVIDER_A_URL: ${PROVIDER_A_URL:-}
+      PROVIDER_A_KEY: ${PROVIDER_A_KEY:-}
+      PROVIDER_B_URL: ${PROVIDER_B_URL:-}
+      PROVIDER_B_KEY: ${PROVIDER_B_KEY:-}
+      PROVIDER_C_URL: ${PROVIDER_C_URL:-}
+      PROVIDER_C_KEY: ${PROVIDER_C_KEY:-}
+      WORKBUDDY_URL: ${WORKBUDDY_URL:-}
+      WORKBUDDY_KEY: ${WORKBUDDY_KEY:-}
+      TRAE_URL: ${TRAE_URL:-}
+      TRAE_KEY: ${TRAE_KEY:-}
+      QODER_URL: ${QODER_URL:-}
+      QODER_KEY: ${QODER_KEY:-}
+      CCTQ_URL: ${CCTQ_URL:-}
+      CCTQ_KEY: ${CCTQ_KEY:-}
+    volumes:
+      - ${STARCORE_DATA_PATH:-./data}:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:12100/health/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

@@ -1,0 +1,6 @@
+frontend/node_modules
+web-dist
+node_modules
+data
+.git
+*.tmp
