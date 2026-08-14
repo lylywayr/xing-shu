@@ -13,7 +13,7 @@ import (
 func TestQuotaRuntimeStatusReturnsUnavailableWithoutSources(t *testing.T) {
 	q := NewQuotaRuntime(quota.NewManager(), nil, nil)
 	w := httptest.NewRecorder()
-	q.Status.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/v2/admin/quota/status", nil))
+	q.Status.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/admin/quota/status", nil))
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "unavailable") {
 		t.Fatalf("unexpected quota status: %d %s", w.Code, w.Body.String())
 	}
@@ -22,7 +22,7 @@ func TestQuotaRuntimeStatusReturnsUnavailableWithoutSources(t *testing.T) {
 func TestQuotaRuntimeRefreshReportsConfiguredSources(t *testing.T) {
 	q := NewQuotaRuntime(quota.NewManager(), []quota.RemoteCollector{{Provider: "cctq", URL: ""}}, nil)
 	w := httptest.NewRecorder()
-	q.Refresh.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v2/admin/quota/refresh", nil))
+	q.Refresh.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/admin/quota/refresh", nil))
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "cctq") {
 		t.Fatalf("unexpected quota refresh: %d %s", w.Code, w.Body.String())
 	}

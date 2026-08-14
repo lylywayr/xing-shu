@@ -42,7 +42,7 @@ func makeLocalQuotaDB(t *testing.T) string {
 }
 
 func TestReadLocalQuotaRequiresAuthorization(t *testing.T) {
-	m, err := New(filepath.Join(t.TempDir(), "state.json"), "http://127.0.0.1:3001", "key", false)
+	m, err := New(filepath.Join(t.TempDir(), "state.json"), "http://127.0.0.1:3001", "key")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestReadLocalQuotaRequiresAuthorization(t *testing.T) {
 
 func TestReadLocalQuotaIsReadOnlyAndAggregatesModelsAndPools(t *testing.T) {
 	path := makeLocalQuotaDB(t)
-	m, err := New(filepath.Join(t.TempDir(), "state.json"), "http://127.0.0.1:3001", "key", false)
+	m, err := New(filepath.Join(t.TempDir(), "state.json"), "http://127.0.0.1:3001", "key")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestBudgetLabelsUseUpperBoundAndUnknownIsPartial(t *testing.T) {
 
 func TestLocalQuotaSnapshotSurvivesReadFailure(t *testing.T) {
 	path := makeLocalQuotaDB(t)
-	m, err := New(filepath.Join(t.TempDir(), "state.json"), "http://127.0.0.1:3001", "key", false)
+	m, err := New(filepath.Join(t.TempDir(), "state.json"), "http://127.0.0.1:3001", "key")
 	if err != nil {
 		t.Fatal(err)
 	}

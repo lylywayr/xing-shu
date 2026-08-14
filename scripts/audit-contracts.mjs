@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-const base = process.env.STARCORE_ADMIN_URL || 'http://127.0.0.1:12100'
-const username = process.env.STARCORE_ADMIN_USER
-const password = process.env.STARCORE_ADMIN_PASSWORD
-const timeoutMs = Number(process.env.STARCORE_AUDIT_TIMEOUT_MS || 15000)
-const reviewerProvider = process.env.STARCORE_AUDIT_REVIEWER_PROVIDER
-const reviewerModel = process.env.STARCORE_AUDIT_REVIEWER_MODEL
+const base = process.env.XING_SHU_ADMIN_URL || 'http://127.0.0.1:12100'
+const username = process.env.XING_SHU_ADMIN_USER
+const password = process.env.XING_SHU_ADMIN_PASSWORD
+const timeoutMs = Number(process.env.XING_SHU_AUDIT_TIMEOUT_MS || 15000)
+const reviewerProvider = process.env.XING_SHU_AUDIT_REVIEWER_PROVIDER
+const reviewerModel = process.env.XING_SHU_AUDIT_REVIEWER_MODEL
 
 const endpoints = [
   { path: '/health/ready', required: ['ready', 'models'] },
@@ -59,7 +59,7 @@ async function fetchJson(path, options = {}) {
 async function main() {
   const unauth = await fetchJson('/api/admin/models')
   if (unauth.response.status !== 401) fail(`auth contract: expected 401, got ${unauth.response.status}`)
-  if (!username || !password) fail('set STARCORE_ADMIN_USER and STARCORE_ADMIN_PASSWORD to run authenticated checks')
+  if (!username || !password) fail('set XING_SHU_ADMIN_USER and XING_SHU_ADMIN_PASSWORD to run authenticated checks')
   const login = await fetchJson('/api/admin/login', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ username, password }).toString() })
   if (!login.response.ok) fail(`login contract: HTTP ${login.response.status}`)
   const cookieValues = login.response.headers.getSetCookie?.() || []
@@ -70,7 +70,7 @@ async function main() {
   for (const endpoint of endpoints) {
     if (endpoint.path === '/api/admin/reviewer/test' && (!reviewerProvider || !reviewerModel)) {
       warnings += 1
-      console.warn('WARN reviewer: set STARCORE_AUDIT_REVIEWER_PROVIDER and STARCORE_AUDIT_REVIEWER_MODEL to test an active upstream model')
+      console.warn('WARN reviewer: set XING_SHU_AUDIT_REVIEWER_PROVIDER and XING_SHU_AUDIT_REVIEWER_MODEL to test an active upstream model')
       continue
     }
     const options = { headers: { cookie: cookieHeader } }

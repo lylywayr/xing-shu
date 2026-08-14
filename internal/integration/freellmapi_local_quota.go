@@ -16,7 +16,7 @@ import (
 )
 
 // LocalQuotaConfig controls the read-only probe of FreeLLMAPI's own SQLite
-// data. The database is opened with mode=ro and query_only=ON. Starcore never
+// data. The database is opened with mode=ro and query_only=ON. Xing Shu never
 // migrates, checkpoints, or otherwise writes this database.
 type LocalQuotaConfig struct {
 	DBPath string
@@ -83,7 +83,7 @@ type localModelRow struct {
 }
 
 // ReadLocalQuota reads the FreeLLMAPI database only after the integration has
-// been authorized. It is deliberately a Starcore-side adapter: FreeLLMAPI is
+// been authorized. It is deliberately a Xing Shu-side adapter: FreeLLMAPI is
 // not changed and no admin session, encrypted key, prompt, or response is read.
 func (m *Manager) ReadLocalQuota(ctx context.Context, cfg LocalQuotaConfig) (*LocalQuotaReport, error) {
 	if !m.Authorized() {

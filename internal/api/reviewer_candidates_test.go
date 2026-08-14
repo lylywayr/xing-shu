@@ -17,7 +17,7 @@ func TestReviewerCandidatesExplainEligibility(t *testing.T) {
 	rt := &Runtime{ReviewerSelection: runtime.NewReviewerSelection()}
 	h := ReviewerCandidatesView(manager, nil, rt)
 	w := httptest.NewRecorder()
-	h(w, httptest.NewRequest("GET", "/v2/admin/reviewer/candidates", nil))
+	h(w, httptest.NewRequest("GET", "/api/admin/reviewer/candidates", nil))
 	if w.Code != 200 {
 		t.Fatalf("want 200 got %d", w.Code)
 	}

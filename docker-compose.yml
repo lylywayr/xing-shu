@@ -1,20 +1,20 @@
 services:
-  starcore:
+  xing-shu:
     build:
       context: .
       args:
         GOPROXY: ${GOPROXY:-https://proxy.golang.org,direct}
-    image: ${STARCORE_IMAGE:-xing-shu:latest}
-    container_name: ${STARCORE_CONTAINER_NAME:-xing-shu}
+    image: ${XING_SHU_IMAGE:-xing-shu:latest}
+    container_name: ${XING_SHU_CONTAINER_NAME:-xing-shu}
     ports:
-      - "${STARCORE_PORT:-12100}:12100"
+      - "${XING_SHU_PORT:-12100}:12100"
     environment:
-      STARCORE_DATA_DIR: /data
-      STARCORE_NATIVE_CHAT: ${STARCORE_NATIVE_CHAT:-true}
+      XING_SHU_DATA_DIR: /data
+      XING_SHU_NATIVE_CHAT: ${XING_SHU_NATIVE_CHAT:-true}
       LISTEN: ":12100"
       ADMIN_API_KEY: ${ADMIN_API_KEY:-}
-      STARCORE_ADMIN_USER: ${STARCORE_ADMIN_USER:-}
-      STARCORE_ADMIN_PASSWORD: ${STARCORE_ADMIN_PASSWORD:-}
+      XING_SHU_ADMIN_USER: ${XING_SHU_ADMIN_USER:-}
+      XING_SHU_ADMIN_PASSWORD: ${XING_SHU_ADMIN_PASSWORD:-}
       FREELLMAPI_URL: ${FREELLMAPI_URL:-}
       FREELLMAPI_KEY: ${FREELLMAPI_KEY:-}
       FREELLMAPI_DB_PATH: ${FREELLMAPI_DB_PATH:-}
@@ -33,7 +33,7 @@ services:
       CCTQ_URL: ${CCTQ_URL:-}
       CCTQ_KEY: ${CCTQ_KEY:-}
     volumes:
-      - ${STARCORE_DATA_PATH:-./data}:/data
+      - ${XING_SHU_DATA_PATH:-./data}:/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:12100/health/ready"]

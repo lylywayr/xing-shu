@@ -16,7 +16,7 @@ func TestShadowRunRequiresTrustedKnowledge(t *testing.T) {
 	rt.Reviews.Add(runtime.Review{ID: "r1", Replayable: true, TaskPackage: []byte(`{"model":"auto"}`)})
 	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "m1", Provider: "p1", Status: catalog.Active, AutoRoutable: true}}}, nil)
 	handler := ShadowRun(rt, manager, NewOps())
-	req := httptest.NewRequest(http.MethodPost, "/v2/admin/shadow/run", strings.NewReader(`{"knowledge_id":"k1","review_id":"r1","candidate_model":"m1"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/shadow/run", strings.NewReader(`{"knowledge_id":"k1","review_id":"r1","candidate_model":"m1"}`))
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 	if w.Code != http.StatusConflict {
@@ -28,7 +28,7 @@ func TestKnowledgeViewSupportsStatusFilter(t *testing.T) {
 	store := runtime.NewKnowledgeStore()
 	store.Upsert(runtime.Knowledge{ID: "proposed", Status: runtime.KnowledgeProposed})
 	store.Upsert(runtime.Knowledge{ID: "rejected", Status: runtime.KnowledgeRejected})
-	req := httptest.NewRequest(http.MethodGet, "/v2/admin/knowledge?status=proposed", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/knowledge?status=proposed", nil)
 	w := httptest.NewRecorder()
 	KnowledgeView(store).ServeHTTP(w, req)
 	var body struct {
@@ -43,7 +43,7 @@ func TestKnowledgeViewIncludesLifecycleSummary(t *testing.T) {
 	store := runtime.NewKnowledgeStore()
 	store.Upsert(runtime.Knowledge{ID: "k1", Status: runtime.KnowledgeTrusted, ValidationHistory: []runtime.KnowledgeValidation{{ID: "v1"}}})
 	w := httptest.NewRecorder()
-	KnowledgeView(store).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/v2/admin/knowledge", nil))
+	KnowledgeView(store).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/admin/knowledge", nil))
 	var body struct {
 		Items []runtime.Knowledge `json:"items"`
 		Stats map[string]int      `json:"stats"`

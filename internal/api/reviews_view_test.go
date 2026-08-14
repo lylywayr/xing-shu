@@ -12,7 +12,7 @@ func TestReviewsViewReturnsBoundedSummaryByDefault(t *testing.T) {
 	reviews := runtime.NewReviews()
 	reviews.Add(runtime.Review{ID: "r1", Model: "m1", Provider: "p1", ReviewStatus: runtime.StatusPending, TaskPackage: []byte(strings.Repeat("task", 10000)), ResponsePackage: []byte(strings.Repeat("response", 10000)), Replayable: true, ResponseCaptured: true})
 	w := httptest.NewRecorder()
-	ReviewsView(reviews).ServeHTTP(w, httptest.NewRequest("GET", "/v2/admin/reviews", nil))
+	ReviewsView(reviews).ServeHTTP(w, httptest.NewRequest("GET", "/api/admin/reviews", nil))
 	if w.Code != 200 {
 		t.Fatalf("want 200 got %d", w.Code)
 	}

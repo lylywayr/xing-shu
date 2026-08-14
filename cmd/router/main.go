@@ -20,20 +20,20 @@ import (
 )
 
 func dataDir() string {
-	if value := os.Getenv("STARCORE_DATA_DIR"); value != "" {
+	if value := os.Getenv("XING_SHU_DATA_DIR"); value != "" {
 		return filepath.Clean(value)
 	}
 	return "/data"
 }
 
 func loadCatalogState(dir string) (catalog.State, error) {
-	return catalog.LoadState(filepath.Join(dir, "catalog-starcore.json"))
+	return catalog.LoadState(filepath.Join(dir, "catalog-xing-shu.json"))
 }
 
 func adminAuthorizer() auth.Authorizer {
 	key := os.Getenv("ADMIN_API_KEY")
-	user := os.Getenv("STARCORE_ADMIN_USER")
-	password := os.Getenv("STARCORE_ADMIN_PASSWORD")
+	user := os.Getenv("XING_SHU_ADMIN_USER")
+	password := os.Getenv("XING_SHU_ADMIN_PASSWORD")
 	if user == "" {
 		user = "admin"
 	}
@@ -46,25 +46,25 @@ func adminAuthorizer() auth.Authorizer {
 func main() {
 	dir := dataDir()
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		log.Fatalf("starcore data directory: %v", err)
+		log.Fatalf("xing-shu data directory: %v", err)
 	}
 	state, err := loadCatalogState(dir)
 	if err != nil {
-		log.Fatalf("load starcore catalog state: %v", err)
+		log.Fatalf("load xing-shu catalog state: %v", err)
 	}
 	gov, err := storage.LoadGovernance(dir)
 	if err != nil {
-		log.Fatalf("load starcore governance state: %v", err)
+		log.Fatalf("load xing-shu governance state: %v", err)
 	}
 	manager := catalog.NewManagerWithState(state)
 	manager.SetPersist(func(next catalog.State) {
-		if err := catalog.SaveState(filepath.Join(dir, "catalog-starcore.json"), next); err != nil {
-			log.Printf("starcore catalog persistence failed: %v", err)
+		if err := catalog.SaveState(filepath.Join(dir, "catalog-xing-shu.json"), next); err != nil {
+			log.Printf("xing-shu catalog persistence failed: %v", err)
 		}
 	})
 	sharedRuntime := api.NewRuntimeAt(dir)
 	configs := provider.LoadConfigs()
-	freeManager, _ := integration.New(filepath.Join(dir, "integrations-starcore.json"), os.Getenv("FREELLMAPI_URL"), os.Getenv("FREELLMAPI_KEY"), os.Getenv("STARCORE_FREELLMAPI_MIGRATE_AUTH") == "true")
+	freeManager, _ := integration.New(filepath.Join(dir, "integrations-xing-shu.json"), os.Getenv("FREELLMAPI_URL"), os.Getenv("FREELLMAPI_KEY"))
 	if freeManager != nil {
 		freeManager.SetLocalQuotaPath(os.Getenv("FREELLMAPI_DB_PATH"))
 	}
@@ -79,7 +79,7 @@ func main() {
 	}
 	syncCtx := context.Background()
 	ops := api.NewOps()
-	ops.Load(filepath.Join(dir, "provider-ops-starcore.json"))
+	ops.Load(filepath.Join(dir, "provider-ops-xing-shu.json"))
 	catalog.StartSyncWithObserverGated(syncCtx, manager, configs, 60*time.Second, func(providerID string, result provider.Result) {
 		if result.ErrorType == "" {
 			ops.ClearSyncError(providerID)
@@ -109,7 +109,7 @@ func main() {
 	api.StartReviewWorkerOnce(syncCtx, sharedRuntime, manager, ops, 24*time.Hour)
 	api.StartShadowWorker(syncCtx, sharedRuntime, manager, ops, 24*time.Hour)
 	api.StartMaintenance(syncCtx, sharedRuntime)
-	snap := governance.NewManager(filepath.Join(dir, "snapshots-starcore"))
+	snap := governance.NewManager(filepath.Join(dir, "snapshots-xing-shu"))
 	_ = snap.SaveCatalog(manager.Snapshot())
 	quotaManager := quota.NewManager()
 	if freeManager != nil {
@@ -132,11 +132,10 @@ func main() {
 	mux.Handle("/health", apiMux)
 	mux.Handle("/health/", apiMux)
 	mux.Handle("/api/", apiMux)
-	mux.Handle("/v2/", apiMux)
 	mux.Handle("/v1/models", api.NativeModelsManager(manager))
-	if os.Getenv("STARCORE_NATIVE_CHAT") != "false" {
+	if os.Getenv("XING_SHU_NATIVE_CHAT") != "false" {
 		ledger := quota.NewLedger()
-		ledger.Load(filepath.Join(dir, "quota-ledger-starcore.json"))
+		ledger.Load(filepath.Join(dir, "quota-ledger-xing-shu.json"))
 		mux.Handle("/v1/chat/completions", &api.Chat{Router: routingService, Fallback: nil, Audit: observability.New(dir), Ledger: ledger, Runtime: sharedRuntime})
 	}
 	mux.HandleFunc("/v1/", func(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) })
@@ -144,6 +143,6 @@ func main() {
 	if addr == "" {
 		addr = ":12200"
 	}
-	log.Printf("starcore listening on %s", addr)
+	log.Printf("xing-shu listening on %s", addr)
 	log.Fatal(http.ListenAndServe(addr, mux))
 }

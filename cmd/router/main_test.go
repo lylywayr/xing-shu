@@ -27,8 +27,8 @@ func TestStaticHandlerDoesNotCacheHTMLShell(t *testing.T) {
 
 func TestAdminAuthorizerUsesAPIKeyFallback(t *testing.T) {
 	t.Setenv("ADMIN_API_KEY", "api-key")
-	t.Setenv("STARCORE_ADMIN_USER", "")
-	t.Setenv("STARCORE_ADMIN_PASSWORD", "")
+	t.Setenv("XING_SHU_ADMIN_USER", "")
+	t.Setenv("XING_SHU_ADMIN_PASSWORD", "")
 	a := adminAuthorizer()
 	if a.Username != "admin" || a.Password != "api-key" {
 		t.Fatalf("unexpected fallback auth: user=%q password_set=%t", a.Username, a.Password != "")

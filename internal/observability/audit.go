@@ -28,7 +28,7 @@ func New(dir string) *Audit { _ = os.MkdirAll(dir, 0700); return &Audit{Dir: dir
 func (a *Audit) Record(e Event) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	f, x := os.OpenFile(filepath.Join(a.Dir, "audit-starcore.jsonl"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	f, x := os.OpenFile(filepath.Join(a.Dir, "audit-xing-shu.jsonl"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if x != nil {
 		return
 	}

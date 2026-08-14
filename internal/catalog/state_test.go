@@ -6,7 +6,7 @@ import (
 )
 
 func TestStateRoundTripAndManagerPersistence(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "catalog-starcore.json")
+	path := filepath.Join(t.TempDir(), "catalog-xing-shu.json")
 	original := State{Catalog: Catalog{Version: "r1", Models: []Model{{ID: "m", Provider: "p", Status: Active}}}, Allow: map[string]bool{"p/m": true}}
 	if err := SaveState(path, original); err != nil {
 		t.Fatal(err)

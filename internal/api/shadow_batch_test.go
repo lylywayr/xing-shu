@@ -14,7 +14,7 @@ func TestShadowBatchesViewFiltersByStatus(t *testing.T) {
 	batches.Put(runtime.ShadowBatch{ID: "b1", Status: runtime.ShadowBatchCompleted})
 	batches.Put(runtime.ShadowBatch{ID: "b2", Status: runtime.ShadowBatchRunning})
 	w := httptest.NewRecorder()
-	ShadowBatchesView(batches).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/v2/admin/shadow/batches?status=running", nil))
+	ShadowBatchesView(batches).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/admin/shadow/batches?status=running", nil))
 	var body struct {
 		Items []runtime.ShadowBatch `json:"items"`
 	}
@@ -26,7 +26,7 @@ func TestShadowBatchesViewFiltersByStatus(t *testing.T) {
 func TestShadowBatchStopRequiresBatchID(t *testing.T) {
 	batches := runtime.NewShadowBatches()
 	w := httptest.NewRecorder()
-	ShadowBatchStop(batches).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v2/admin/shadow/batches/stop", strings.NewReader(`{}`)))
+	ShadowBatchStop(batches).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/admin/shadow/batches/stop", strings.NewReader(`{}`)))
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", w.Code)
 	}

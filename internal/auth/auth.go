@@ -46,7 +46,7 @@ func (a Authorizer) Login(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	exp := strconv.FormatInt(time.Now().Add(2*time.Hour).Unix(), 10)
-	http.SetCookie(w, &http.Cookie{Name: "starcore_admin", Value: exp + "." + a.signature(exp), Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 7200})
+	http.SetCookie(w, &http.Cookie{Name: "xing_shu_admin", Value: exp + "." + a.signature(exp), Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 7200})
 	return true
 }
 func (a Authorizer) Check(r *http.Request, p Permission) bool {
@@ -60,7 +60,7 @@ func (a Authorizer) Check(r *http.Request, p Permission) bool {
 	}
 	cookies := r.Cookies()
 	for _, c := range cookies {
-		if c.Name != "starcore_admin" {
+		if c.Name != "xing_shu_admin" {
 			continue
 		}
 		x := strings.SplitN(c.Value, ".", 2)

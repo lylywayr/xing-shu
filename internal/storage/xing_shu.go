@@ -8,7 +8,7 @@ import (
 )
 
 func LoadGovernance(dir string) ([]governance.Record, error) {
-	path := filepath.Join(dir, "governance-starcore.json")
+	path := filepath.Join(dir, "governance-xing-shu.json")
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return []governance.Record{}, nil
@@ -34,7 +34,7 @@ func SaveGovernance(dir string, records []governance.Record) error {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
-	path := filepath.Join(dir, "governance-starcore.json")
+	path := filepath.Join(dir, "governance-xing-shu.json")
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, data, 0600); err != nil {
 		return err

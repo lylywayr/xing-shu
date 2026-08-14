@@ -21,7 +21,7 @@ func TestReviewDetailHidesRawPackagesByDefaultAndCapsRawOutput(t *testing.T) {
 	views := seededReviews()
 	handler := ReviewDetailView(views, 8)
 	for _, raw := range []string{"", "&raw=true"} {
-		req := httptest.NewRequest(http.MethodGet, "/v2/admin/reviews/detail?id=r1"+raw, nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/admin/reviews/detail?id=r1"+raw, nil)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 		if w.Code != http.StatusOK {
@@ -40,7 +40,7 @@ func TestReviewDetailHidesRawPackagesByDefaultAndCapsRawOutput(t *testing.T) {
 
 func TestReviewDetailRejectsMissingReviewAndInvalidRawFlag(t *testing.T) {
 	handler := ReviewDetailView(seededReviews(), 64)
-	for _, path := range []string{"/v2/admin/reviews/detail?id=missing", "/v2/admin/reviews/detail?id=r1&raw=maybe"} {
+	for _, path := range []string{"/api/admin/reviews/detail?id=missing", "/api/admin/reviews/detail?id=r1&raw=maybe"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
@@ -52,7 +52,7 @@ func TestReviewDetailRejectsMissingReviewAndInvalidRawFlag(t *testing.T) {
 
 func TestReviewBatchesAggregatesStatusesAndErrors(t *testing.T) {
 	handler := ReviewBatchesView(seededReviews())
-	req := httptest.NewRequest(http.MethodGet, "/v2/admin/reviews/batches", strings.NewReader(""))
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/reviews/batches", strings.NewReader(""))
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {

@@ -147,7 +147,7 @@ func rootEndpoint(raw string) string {
 	return strings.TrimRight(parsed.String(), "/")
 }
 
-func New(path, rawEndpoint, key string, defaultAuthorized bool) (*Manager, error) {
+func New(path, rawEndpoint, key string) (*Manager, error) {
 	endpoint := rootEndpoint(rawEndpoint)
 	client := &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
 	if endpoint == "" || strings.TrimSpace(key) == "" {
@@ -156,12 +156,10 @@ func New(path, rawEndpoint, key string, defaultAuthorized bool) (*Manager, error
 	m := &Manager{path: path, key: key, client: client}
 	m.instance = State{InstanceID: FreeLLMAPIInstanceID, Adapter: "freellmapi", Endpoint: endpoint, SecretRef: "FREELLMAPI_KEY", Status: "unauthorized"}
 	m.instance.ConfigFingerprint = fingerprint(endpoint, key)
-	saved := false
 	body, err := os.ReadFile(path)
 	if err == nil {
 		var savedState persisted
 		if json.Unmarshal(body, &savedState) == nil && savedState.FreeLLMAPI.InstanceID != "" {
-			saved = true
 			m.instance = savedState.FreeLLMAPI
 			m.localDBPath = savedState.LocalQuotaDBPath
 			m.localQuota = savedState.LocalQuota
@@ -182,11 +180,6 @@ func New(path, rawEndpoint, key string, defaultAuthorized bool) (*Manager, error
 	}
 	if m.instance.InstanceID == "" {
 		m.instance.InstanceID = FreeLLMAPIInstanceID
-	}
-	if !saved && defaultAuthorized {
-		m.instance.Authorized = true
-		m.instance.RouteEnabled = true
-		m.instance.Status = "authorized"
 	}
 	_ = m.persistLocked()
 	return m, nil
@@ -538,7 +531,7 @@ func (m *Manager) Probe(ctx context.Context) (Report, error) {
 	if providersErr == nil && providersStatus >= 200 && providersStatus < 300 {
 		providers, _ = decodeProviders(providersRaw)
 	}
-	summaryStatus, _, summaryRaw, summaryErr := m.request(ctx, "/v1/integrations/starcore/summary", true)
+	summaryStatus, _, summaryRaw, summaryErr := m.request(ctx, "/v1/integrations/xing-shu/summary", true)
 	var summary *Summary
 	if summaryErr == nil && summaryStatus >= 200 && summaryStatus < 300 {
 		summary, summaryErr = decodeSummary(summaryRaw)

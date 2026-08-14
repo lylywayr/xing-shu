@@ -23,7 +23,7 @@ func TestLoginUsesConfiguredCredentials(t *testing.T) {
 func TestLoginRejectsMissingConfiguredCredentials(t *testing.T) {
 	a := Authorizer{AdminKey: "key"}
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/login", nil)
-	req.Form = url.Values{"username": {"legacy-user"}, "password": {"legacy-pass"}}
+	req.Form = url.Values{"username": {"test-user"}, "password": {"test-pass"}}
 	if a.Login(httptest.NewRecorder(), req) {
 		t.Fatal("hardcoded historical credentials must not authenticate")
 	}
@@ -55,7 +55,7 @@ func TestCheckAcceptsAnyValidDuplicateAdminCookie(t *testing.T) {
 	}
 	valid := res.Result().Cookies()[0]
 	r := httptest.NewRequest(http.MethodGet, "/api/admin/status", nil)
-	r.Header.Add("Cookie", "starcore_admin=stale.invalid")
+	r.Header.Add("Cookie", "xing_shu_admin=stale.invalid")
 	r.AddCookie(valid)
 	if !a.Check(r, Read) {
 		t.Fatal("valid duplicate cookie should authorize")

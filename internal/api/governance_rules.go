@@ -183,7 +183,7 @@ func (r *GovernanceRulesRuntime) load() {
 	if r.dir == "" {
 		return
 	}
-	data, err := os.ReadFile(filepath.Join(r.dir, "governance-rules-starcore.json"))
+	data, err := os.ReadFile(filepath.Join(r.dir, "governance-rules-xing-shu.json"))
 	if err != nil {
 		return
 	}
@@ -215,8 +215,8 @@ func (r *GovernanceRulesRuntime) save() {
 	data, _ := json.MarshalIndent(state, "", "  ")
 	r.mu.RUnlock()
 	_ = os.MkdirAll(r.dir, 0700)
-	tmp := filepath.Join(r.dir, "governance-rules-starcore.json.tmp")
+	tmp := filepath.Join(r.dir, "governance-rules-xing-shu.json.tmp")
 	if os.WriteFile(tmp, data, 0600) == nil {
-		_ = os.Rename(tmp, filepath.Join(r.dir, "governance-rules-starcore.json"))
+		_ = os.Rename(tmp, filepath.Join(r.dir, "governance-rules-xing-shu.json"))
 	}
 }

@@ -4,11 +4,10 @@
 
 ## 产品边界
 
-星枢只依赖自己的镜像、配置和 `STARCORE_DATA_DIR`。它不读取历史项目目录、不挂载历史数据库、不探测或切换其他服务，也不把平台账号、签到、余额管理或密钥托管作为核心能力。
+星枢只依赖自己的镜像、配置和 `XING_SHU_DATA_DIR`。它不读取历史项目目录、不挂载历史数据库、不探测或切换其他服务，也不把平台账号、签到、余额管理或密钥托管作为核心能力。
 
 - `/v1/models`、`/v1/chat/completions`：标准协议兼容入口。
-- `/api/admin/*`：正式管理接口。
-- `/v2/admin/*`：短期兼容别名，不代表产品版本。
+- `/api/admin/*`：唯一管理接口。
 - FreeLLMAPI：唯一保留的可选主动适配；授权前不探测、不读取本地数据库、不参与调用。
 - 其他 Provider：只按通用 OpenAI-compatible `/models` 和 `/chat/completions` 接入。
 
@@ -38,10 +37,10 @@ curl -fsS http://127.0.0.1:12100/health/ready
 
 复制 `.env.example` 后配置：
 
-- `ADMIN_API_KEY`、`STARCORE_ADMIN_USER`、`STARCORE_ADMIN_PASSWORD`：管理认证。
+- `ADMIN_API_KEY`、`XING_SHU_ADMIN_USER`、`XING_SHU_ADMIN_PASSWORD`：管理认证。
 - `PROVIDER_A_URL/KEY`、`PROVIDER_B_URL/KEY`、`PROVIDER_C_URL/KEY`：通用 Provider 槽位。URL 应指向兼容 API 的 `/v1` 基地址。
 - `FREELLMAPI_URL/KEY`：可选 FreeLLMAPI 集成；需要在控制台显式授权。
-- `STARCORE_DATA_PATH`：宿主机唯一持久化目录，默认 `./data`。
+- `XING_SHU_DATA_PATH`：宿主机唯一持久化目录，默认 `./data`。
 所有密钥只通过部署环境注入。星枢不会在公开 API、审计或日志中返回完整密钥。
 
 ## 开发与验证
@@ -64,8 +63,8 @@ npm run build
 运维脚本：
 
 ```sh
-sh -n ops/starcore-preflight.sh
-sh -n ops/starcore-watchdog.sh
+sh -n ops/xing-shu-preflight.sh
+sh -n ops/xing-shu-watchdog.sh
 sh -n scripts/browser-smoke.sh
 node --check scripts/audit-contracts.mjs
 ```
@@ -85,7 +84,7 @@ NAS 或其他主机恢复时：
 5. 验证容器 healthy、`/health`、`/health/ready`、登录和核心管理接口。
 6. 异常时停止新容器并从备份恢复；不要修改无关服务。
 
-详细清单见 [`docs/starcore-release-runbook.md`](docs/starcore-release-runbook.md) 和 [`docs/ai-handoff.md`](docs/ai-handoff.md)。
+详细清单见 [`docs/xing-shu-release-runbook.md`](docs/xing-shu-release-runbook.md) 和 [`docs/ai-handoff.md`](docs/ai-handoff.md)。
 
 ## 已知限制
 

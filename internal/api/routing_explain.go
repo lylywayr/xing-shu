@@ -64,11 +64,11 @@ func RoutingExplain(service *routing.Service) http.HandlerFunc {
 			}
 			items = append(items, explainCandidate{Provider: model.Provider, Model: model.ID, Eligible: eligible, Reasons: reasons, ScoreBreakdown: map[string]int{"base_score": base, "provider_adjustment": providerAdjustment, "knowledge_bonus": knowledgeBonus}, TotalScore: base + providerAdjustment + knowledgeBonus})
 		}
-		legacy := make([]map[string]any, 0, len(items))
+		rows := make([]map[string]any, 0, len(items))
 		for _, item := range items {
-			legacy = append(legacy, map[string]any{"provider": item.Provider, "model": item.Model, "status": "active", "auto_routable": item.Eligible, "rule_score": item.TotalScore, "knowledge_applied": item.ScoreBreakdown["knowledge_bonus"] > 0, "reasons": item.Reasons, "score_breakdown": item.ScoreBreakdown})
+			rows = append(rows, map[string]any{"provider": item.Provider, "model": item.Model, "status": "active", "auto_routable": item.Eligible, "rule_score": item.TotalScore, "knowledge_applied": item.ScoreBreakdown["knowledge_bonus"] > 0, "reasons": item.Reasons, "score_breakdown": item.ScoreBreakdown})
 		}
-		writeJSON(w, map[string]any{"request": body, "need": need, "selected": selected, "excluded": excluded, "candidates": items, "items": legacy})
+		writeJSON(w, map[string]any{"request": body, "need": need, "selected": selected, "excluded": excluded, "candidates": items, "items": rows})
 	}
 }
 

@@ -30,7 +30,7 @@ func RuntimeDiagnostics(dataDir string) http.HandlerFunc {
 		if dataDir == "" {
 			dataDir = "/data"
 		}
-		names := []string{"catalog-starcore.json", "governance-starcore.json", "cache-starcore.json", "sessions-starcore.json", "learning-starcore.json", "reviews-starcore.json", "routing-knowledge-starcore.json", "shadow-results-starcore.json", "shadow-batches-starcore.json", "quota-ledger-starcore.json", "audit-starcore.jsonl", "alerts.jsonl", "quota-alert-state-starcore.json", "provider-ops-starcore.json"}
+		names := []string{"catalog-xing-shu.json", "governance-xing-shu.json", "cache-xing-shu.json", "sessions-xing-shu.json", "learning-xing-shu.json", "reviews-xing-shu.json", "routing-knowledge-xing-shu.json", "shadow-results-xing-shu.json", "shadow-batches-xing-shu.json", "quota-ledger-xing-shu.json", "audit-xing-shu.jsonl", "alerts.jsonl", "quota-alert-state-xing-shu.json", "provider-ops-xing-shu.json"}
 		metrics := make([]RuntimeFileMetric, 0, len(names))
 		for _, name := range names {
 			metrics = append(metrics, fileMetric(dataDir, name))
@@ -72,18 +72,18 @@ func WatchdogStatusView(stateDir string) http.HandlerFunc {
 			return
 		}
 		if stateDir == "" {
-			stateDir = os.Getenv("STARCORE_WATCHDOG_STATE_DIR")
+			stateDir = os.Getenv("XING_SHU_WATCHDOG_STATE_DIR")
 			if stateDir == "" {
-				stateDir = "/var/run/starcore-watchdog"
+				stateDir = "/var/run/xing-shu-watchdog"
 			}
 		}
 		maxFailures := 5
-		if value, err := strconv.Atoi(os.Getenv("STARCORE_WATCHDOG_MAX_FAILURES")); err == nil && value > 0 {
+		if value, err := strconv.Atoi(os.Getenv("XING_SHU_WATCHDOG_MAX_FAILURES")); err == nil && value > 0 {
 			maxFailures = value
 		}
 		failures := readInt(filepath.Join(stateDir, "failures"))
 		lastFailure := readText(filepath.Join(stateDir, "last_failure_at"))
-		status := WatchdogStatus{StateDir: stateDir, Healthy: failures == 0, ConsecutiveFailures: failures, MaxFailures: maxFailures, LastFailureAt: lastFailure, DryRun: os.Getenv("STARCORE_WATCHDOG_DRY_RUN") == "1", Detail: "星枢看门狗尚未报告故障"}
+		status := WatchdogStatus{StateDir: stateDir, Healthy: failures == 0, ConsecutiveFailures: failures, MaxFailures: maxFailures, LastFailureAt: lastFailure, DryRun: os.Getenv("XING_SHU_WATCHDOG_DRY_RUN") == "1", Detail: "星枢看门狗尚未报告故障"}
 		if failures > 0 {
 			status.Detail = fmt.Sprintf("星枢看门狗连续失败 %d 次", failures)
 		}

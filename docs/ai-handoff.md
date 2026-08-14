@@ -4,14 +4,13 @@
 
 ## 1. 当前产品定义
 
-星枢是独立的大模型路由与治理控制面，不是历史项目的 V1/V2 版本，也不依赖历史目录或历史容器。运行时只读取 `STARCORE_DATA_DIR`（容器内默认 `/data`）和部署环境变量。标准协议路径中的 `/v1/` 是 API 兼容语义，不是产品版本。
+星枢是唯一产品与运行服务。运行时只读取 `XING_SHU_DATA_DIR`（容器内默认 `/data`）和部署环境变量。`/v1/models` 与 `/v1/chat/completions` 仅是 OpenAI-compatible 标准协议路径。
 
 核心边界：FreeLLMAPI 保留为唯一主动适配的可选外部集成；其他 Provider 只能使用 OpenAI-compatible `/models` 和 `/chat/completions`。星枢负责目录、能力证据、治理、选路、失败切换、冷却、审计和学习闭环，不负责平台账号、签到、Key 自动获取或外部平台运营。
 
 ## 2. 代码地图
 
 - `cmd/router`：服务启动、配置装配、健康与协议入口。
-- `cmd/migrate`、`internal/migration`：一次性离线迁移工具；正式服务不调用历史迁移。
 - `internal/catalog`：模型目录、同步、生命周期。
 - `internal/provider`：通用 Provider HTTP 客户端与错误分类。
 - `internal/integration`：FreeLLMAPI 状态、模型同步和只读本地额度。
@@ -25,14 +24,14 @@
 
 公开仓库不得包含 `.env`、`data/`、数据库、JSONL 运行日志、Cookie、完整 API Key、管理员密码、NAS 地址或备份路径。`.gitignore` 与 `.dockerignore` 是第一道门禁，发布前还要执行 `git grep` 和正则扫描。
 
-唯一正式持久化挂载是宿主机配置的 `STARCORE_DATA_PATH:/data`。FreeLLMAPI 数据卷不属于默认公开 Compose；如确需使用集成，必须由部署者明确配置只读挂载、显式授权并确认风险。
+唯一正式持久化挂载是宿主机配置的 `XING_SHU_DATA_PATH:/data`。FreeLLMAPI 数据卷不属于默认公开 Compose；如确需使用集成，必须由部署者明确配置只读挂载、显式授权并确认风险。
 
 ## 4. 本地验证顺序
 
 1. `GOMAXPROCS=1 go test -p 1 -vet=off ./...`
 2. `cd frontend && npm ci && npm run test && npm run typecheck && npm run build`
 3. `node --check scripts/audit-contracts.mjs`
-4. `sh -n ops/starcore-preflight.sh ops/starcore-watchdog.sh scripts/browser-smoke.sh`
+4. `sh -n ops/xing-shu-preflight.sh ops/xing-shu-watchdog.sh scripts/browser-smoke.sh`
 5. `docker compose config`
 6. 生成镜像后验证 `/health`、`/health/ready`、认证、`/api/admin/*`、`/v1/models` 和最小聊天契约。
 

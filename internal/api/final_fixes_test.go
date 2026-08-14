@@ -34,7 +34,7 @@ func TestAlertsViewReturnsJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := httptest.NewRecorder()
-	AlertsView(path).ServeHTTP(w, httptest.NewRequest("GET", "/v2/admin/alerts", nil))
+	AlertsView(path).ServeHTTP(w, httptest.NewRequest("GET", "/api/admin/alerts", nil))
 	var got struct {
 		Items []map[string]any `json:"items"`
 	}

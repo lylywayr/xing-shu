@@ -20,7 +20,7 @@ func ruleManager() *catalog.Manager {
 func TestGovernanceRulesPreviewRejectsUnknownAndEmptyChanges(t *testing.T) {
 	rules := NewGovernanceRulesRuntime(ruleManager(), t.TempDir())
 	for _, body := range []string{`{"changes":[]}`, `{"changes":[{"key":"p1/missing","allow":true}]}`} {
-		req := httptest.NewRequest(http.MethodPost, "/v2/admin/governance/rules/preview", strings.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/admin/governance/rules/preview", strings.NewReader(body))
 		w := httptest.NewRecorder()
 		rules.Preview(w, req)
 		if w.Code != http.StatusBadRequest {
@@ -32,7 +32,7 @@ func TestGovernanceRulesPreviewRejectsUnknownAndEmptyChanges(t *testing.T) {
 func TestGovernanceRulesApplyPersistsAuditAndUndoRestores(t *testing.T) {
 	manager := ruleManager()
 	rules := NewGovernanceRulesRuntime(manager, t.TempDir())
-	req := httptest.NewRequest(http.MethodPost, "/v2/admin/governance/rules/apply", strings.NewReader(`{"changes":[{"key":"p1/m2","allow":false}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/governance/rules/apply", strings.NewReader(`{"changes":[{"key":"p1/m2","allow":false}]}`))
 	w := httptest.NewRecorder()
 	rules.Apply(w, req)
 	if w.Code != http.StatusOK {
@@ -41,9 +41,9 @@ func TestGovernanceRulesApplyPersistsAuditAndUndoRestores(t *testing.T) {
 	var applied map[string]any
 	_ = json.Unmarshal(w.Body.Bytes(), &applied)
 	if applied["revision"] == "" || manager.Snapshot().Models[1].AutoRoutable {
-		t.Fatalf("apply did not update V2 rule: %+v", applied)
+		t.Fatalf("apply did not update governance rule: %+v", applied)
 	}
-	undo := httptest.NewRequest(http.MethodPost, "/v2/admin/governance/rules/undo", strings.NewReader(`{"revision":"`+applied["revision"].(string)+`"}`))
+	undo := httptest.NewRequest(http.MethodPost, "/api/admin/governance/rules/undo", strings.NewReader(`{"revision":"`+applied["revision"].(string)+`"}`))
 	uw := httptest.NewRecorder()
 	rules.Undo(uw, undo)
 	if uw.Code != http.StatusOK || !manager.Snapshot().Models[1].AutoRoutable {
@@ -57,7 +57,7 @@ func TestGovernanceRulesApplyPersistsAuditAndUndoRestores(t *testing.T) {
 func TestGovernanceRulesProtectedByOperatePermission(t *testing.T) {
 	rules := NewGovernanceRulesRuntime(ruleManager(), t.TempDir())
 	s := &Server{Auth: auth.Authorizer{AdminKey: "secret"}, GovernanceRules: rules}
-	req := httptest.NewRequest(http.MethodPost, "/v2/admin/governance/rules/apply", strings.NewReader(`{"changes":[{"key":"p1/m2","allow":true}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/governance/rules/apply", strings.NewReader(`{"changes":[{"key":"p1/m2","allow":true}]}`))
 	w := httptest.NewRecorder()
 	s.Routes().ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {

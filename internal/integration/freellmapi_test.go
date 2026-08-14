@@ -20,16 +20,12 @@ func TestRootEndpointRejectsQueryCredentialsAndUnsafePort(t *testing.T) {
 	}
 }
 
-func TestNewDefaultsToUnauthorizedAndPersistsOneTimeMigration(t *testing.T) {
+func TestNewDefaultsToUnauthorizedAndPersistsState(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "integration.json")
-	m, err := New(path, "http://127.0.0.1:3001/v1", "key", false)
+	m, err := New(path, "http://127.0.0.1:3001/v1", "key")
 	if err != nil || m.Authorized() {
 		t.Fatalf("new integration must be unauthorized: err=%v state=%+v", err, m.State())
-	}
-	m, err = New(path, "http://127.0.0.1:3001/v1", "key", true)
-	if err != nil || m.Authorized() {
-		t.Fatalf("migration flag should not authorize an existing unauthorized record: err=%v state=%+v", err, m.State())
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Fatal(err)
@@ -45,7 +41,7 @@ func TestProbeDoesNotFollowRedirectAndBoundsPayload(t *testing.T) {
 		t.Fatal("redirect was followed")
 	}))
 	defer server.Close()
-	m, err := New(filepath.Join(t.TempDir(), "state.json"), server.URL, "key", false)
+	m, err := New(filepath.Join(t.TempDir(), "state.json"), server.URL, "key")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -15,7 +15,7 @@ func TestProbeBatchRejectsUnknownOrDuplicateModels(t *testing.T) {
 	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "m1", Provider: "p1", Status: catalog.Active}}}, nil)
 	runtime := &ProbeRuntime{Configs: map[string]provider.Config{"p1": {ID: "p1", BaseURL: "http://127.0.0.1"}}, Manager: manager}
 	batch := NewProbeBatchRuntime(runtime, "")
-	req := httptest.NewRequest(http.MethodPost, "/v2/admin/probe/batch", strings.NewReader(`{"models":[{"provider":"p1","model":"m1"},{"provider":"p1","model":"m1"},{"provider":"p1","model":"missing"}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/probe/batch", strings.NewReader(`{"models":[{"provider":"p1","model":"m1"},{"provider":"p1","model":"m1"},{"provider":"p1","model":"missing"}]}`))
 	w := httptest.NewRecorder()
 	batch.Start(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -32,7 +32,7 @@ func TestProbeBatchReportsProgressAndPersistsHistory(t *testing.T) {
 	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "m1", Provider: "p1", Status: catalog.Active}}}, nil)
 	runtime := &ProbeRuntime{Configs: map[string]provider.Config{"p1": {ID: "p1", BaseURL: upstream.URL}}, Manager: manager}
 	batch := NewProbeBatchRuntime(runtime, t.TempDir())
-	req := httptest.NewRequest(http.MethodPost, "/v2/admin/probe/batch", strings.NewReader(`{"models":[{"provider":"p1","model":"m1"}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/probe/batch", strings.NewReader(`{"models":[{"provider":"p1","model":"m1"}]}`))
 	w := httptest.NewRecorder()
 	batch.Start(w, req)
 	if w.Code != http.StatusAccepted {
@@ -59,7 +59,7 @@ func TestProbeBatchReportsProgressAndPersistsHistory(t *testing.T) {
 
 func TestProbeBatchHistoryReturnsEmptyArray(t *testing.T) {
 	batch := NewProbeBatchRuntime(nil, "")
-	req := httptest.NewRequest(http.MethodGet, "/v2/admin/probe/batch/history", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/probe/batch/history", nil)
 	w := httptest.NewRecorder()
 	batch.History(w, req)
 	var body map[string]any
@@ -80,7 +80,7 @@ func TestProbeBatchRejectsMoreThanFiftyTargets(t *testing.T) {
 		targets[i] = ProbeTarget{Provider: "p1", Model: "m1"}
 	}
 	body, _ := json.Marshal(ProbeBatchRequest{Models: targets})
-	req := httptest.NewRequest(http.MethodPost, "/v2/admin/probe/batch", strings.NewReader(string(body)))
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/probe/batch", strings.NewReader(string(body)))
 	w := httptest.NewRecorder()
 	batch.Start(w, req)
 	if w.Code != http.StatusBadRequest {

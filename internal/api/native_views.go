@@ -150,7 +150,7 @@ type AlertState struct {
 }
 
 func alertStatePath(path string) string {
-	return filepath.Join(filepath.Dir(path), "alerts-state-starcore.json")
+	return filepath.Join(filepath.Dir(path), "alerts-state-xing-shu.json")
 }
 func loadAlertStates(path string) map[string]AlertState {
 	out := map[string]AlertState{}

@@ -18,7 +18,7 @@ func TestReviewerConnectionClassifiesSuccessfulStructuredResponse(t *testing.T) 
 	defer upstream.Close()
 	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "teacher", Provider: "p1", Status: catalog.Active, AutoRoutable: true, StructuredOutput: true, StructuredOutputKnown: true}}}, nil)
 	runtime := &ReviewerConnectionRuntime{Configs: map[string]provider.Config{"p1": {ID: "p1", BaseURL: upstream.URL}}, Manager: manager}
-	req := httptest.NewRequest(http.MethodPost, "/v2/admin/reviewer/test", strings.NewReader(`{"provider":"p1","model":"teacher"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/reviewer/test", strings.NewReader(`{"provider":"p1","model":"teacher"}`))
 	w := httptest.NewRecorder()
 	runtime.Test(w, req)
 	if w.Code != http.StatusOK {
@@ -35,7 +35,7 @@ func TestReviewerConnectionRejectsUnknownModelAndInvalidJSON(t *testing.T) {
 	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "teacher", Provider: "p1", Status: catalog.Active}}}, nil)
 	runtime := &ReviewerConnectionRuntime{Configs: map[string]provider.Config{"p1": {ID: "p1", BaseURL: "http://127.0.0.1"}}, Manager: manager}
 	for _, body := range []string{`{"provider":"p1","model":"missing"}`, `not-json`} {
-		req := httptest.NewRequest(http.MethodPost, "/v2/admin/reviewer/test", strings.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/admin/reviewer/test", strings.NewReader(body))
 		w := httptest.NewRecorder()
 		runtime.Test(w, req)
 		if w.Code != http.StatusBadRequest {
@@ -49,7 +49,7 @@ func TestReviewerConnectionClassifiesProviderAuthFailure(t *testing.T) {
 	defer upstream.Close()
 	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "teacher", Provider: "p1", Status: catalog.Active}}}, nil)
 	runtime := &ReviewerConnectionRuntime{Configs: map[string]provider.Config{"p1": {ID: "p1", BaseURL: upstream.URL}}, Manager: manager}
-	req := httptest.NewRequest(http.MethodPost, "/v2/admin/reviewer/test", strings.NewReader(`{"provider":"p1","model":"teacher"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/reviewer/test", strings.NewReader(`{"provider":"p1","model":"teacher"}`))
 	w := httptest.NewRecorder()
 	runtime.Test(w, req)
 	var body map[string]any

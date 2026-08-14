@@ -13,7 +13,7 @@ import (
 func TestNativeAccountsReturnsRedactedProviderStatus(t *testing.T) {
 	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "m1", Provider: "p1", Status: catalog.Active}}}, nil)
 	w := httptest.NewRecorder()
-	NativeAccounts(map[string]provider.Config{"p1": {ID: "p1", BaseURL: "http://example", APIKey: "secret", Kind: "credit"}}, manager, NewOps()).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/v2/admin/accounts", nil))
+	NativeAccounts(map[string]provider.Config{"p1": {ID: "p1", BaseURL: "http://example", APIKey: "secret", Kind: "credit"}}, manager, NewOps()).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/admin/accounts", nil))
 	if strings.Contains(w.Body.String(), "secret") {
 		t.Fatal("account response leaked API key")
 	}

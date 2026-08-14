@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"path/filepath"
-	"strings"
 	"xing-shu/internal/auth"
 	"xing-shu/internal/catalog"
 	"xing-shu/internal/governance"
@@ -55,26 +54,13 @@ func (s *Server) current() catalog.Catalog {
 	}
 	return s.Catalog
 }
-func adminPathAlias(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v2/admin" || strings.HasPrefix(r.URL.Path, "/v2/admin/") {
-			r2 := r.Clone(r.Context())
-			r2.URL.Path = "/api/admin" + strings.TrimPrefix(r.URL.Path, "/v2/admin")
-			w.Header().Set("Deprecation", "true")
-			next.ServeHTTP(w, r2)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
 func (s *Server) Routes() http.Handler {
 	m := http.NewServeMux()
 	dataDir := s.DataDir
 	if dataDir == "" {
 		dataDir = "/data"
 	}
-	auditPath := filepath.Join(dataDir, "audit-starcore.jsonl")
+	auditPath := filepath.Join(dataDir, "audit-xing-shu.jsonl")
 	alertsPath := filepath.Join(dataDir, "alerts.jsonl")
 	m.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
 	m.HandleFunc("/health/ready", func(w http.ResponseWriter, r *http.Request) {
@@ -97,7 +83,7 @@ func (s *Server) Routes() http.Handler {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		http.SetCookie(w, &http.Cookie{Name: "starcore_admin", Value: "", Path: "/", HttpOnly: true, MaxAge: -1, SameSite: http.SameSiteStrictMode})
+		http.SetCookie(w, &http.Cookie{Name: "xing_shu_admin", Value: "", Path: "/", HttpOnly: true, MaxAge: -1, SameSite: http.SameSiteStrictMode})
 		s.json(w, map[string]bool{"ok": true})
 	})
 	m.Handle("/api/admin/models", s.guard(auth.Read, func(w http.ResponseWriter, r *http.Request) { s.json(w, s.current()) }))
@@ -248,5 +234,5 @@ func (s *Server) Routes() http.Handler {
 	}(), s.Manager, s.Ops)))
 	m.Handle("/api/admin/consistency", s.guard(auth.Read, NativeConsistency(s.Manager, s.Governance)))
 	m.Handle("/api/admin/regression", s.guard(auth.Read, NativeRegression(s.Manager)))
-	return adminPathAlias(m)
+	return m
 }

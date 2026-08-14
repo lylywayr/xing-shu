@@ -153,8 +153,8 @@ func NewQuotaRuntimeFromEnv(manager *quota.Manager) *QuotaRuntime {
 }
 func NewQuotaRuntimeFromEnvWithConfigs(manager *quota.Manager, _ map[string]provider.Config) *QuotaRuntime {
 	q := NewQuotaRuntime(manager, nil, nil)
-	dataDir := envOr("STARCORE_DATA_DIR", "/data")
-	q.StatePath = filepath.Join(dataDir, "quota-facts-starcore.json")
+	dataDir := envOr("XING_SHU_DATA_DIR", "/data")
+	q.StatePath = filepath.Join(dataDir, "quota-facts-xing-shu.json")
 	if manager != nil {
 		if err := manager.Load(q.StatePath); err != nil && !os.IsNotExist(err) {
 			q.lastRefreshOK = false
@@ -254,7 +254,7 @@ func (q *QuotaRuntime) quotaAlertStatePath() string {
 	if q.AlertStatePath != "" {
 		return q.AlertStatePath
 	}
-	return filepath.Join(filepath.Dir(q.AlertPath), "quota-alert-state-starcore.json")
+	return filepath.Join(filepath.Dir(q.AlertPath), "quota-alert-state-xing-shu.json")
 }
 func (q *QuotaRuntime) loadQuotaAlertStates() map[string]quotaAlertState {
 	out := map[string]quotaAlertState{}

@@ -27,7 +27,7 @@ func TestOverviewViewAggregatesLiveState(t *testing.T) {
 	ops.Disabled["p1"] = true
 	runtime := ProviderRuntime{Configs: map[string]provider.Config{"p1": {ID: "p1", Kind: "credit"}}, Manager: manager, Ops: ops}
 	handler := OverviewView(manager, runtime, nil, audit, alerts)
-	request := httptest.NewRequest(http.MethodGet, "/v2/admin/overview", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/admin/overview", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
@@ -64,7 +64,7 @@ func TestOverviewViewAggregatesLiveState(t *testing.T) {
 	}
 }
 
-func TestOverviewViewIgnoresLegacyHealthConfiguration(t *testing.T) {
+func TestOverviewContainsOnlyServiceHealth(t *testing.T) {
 	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "m1", Provider: "p1", Status: catalog.Active}}}, nil)
 	handler := OverviewView(manager, ProviderRuntime{}, []governance.Record{}, filepath.Join(t.TempDir(), "missing-audit"), filepath.Join(t.TempDir(), "missing-alerts"))
 	response := httptest.NewRecorder()
@@ -72,13 +72,12 @@ func TestOverviewViewIgnoresLegacyHealthConfiguration(t *testing.T) {
 	var body struct {
 		Health struct {
 			Service map[string]any `json:"service"`
-			Legacy  map[string]any `json:"v1"`
 		} `json:"health"`
 	}
 	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
-	if body.Health.Service["status"] != "ready" || body.Health.Legacy != nil {
-		t.Fatalf("legacy health leaked: %+v", body.Health)
+	if body.Health.Service["status"] != "ready" {
+		t.Fatalf("unexpected service health: %+v", body.Health)
 	}
 }

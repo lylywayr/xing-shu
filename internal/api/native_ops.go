@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 )
@@ -76,9 +75,6 @@ func (o *OpsState) Handle(w http.ResponseWriter, r *http.Request) {
 	o.mu.Lock()
 	id := r.URL.Query().Get("id")
 	path := r.URL.Path
-	if strings.HasPrefix(path, "/v2/admin") {
-		path = "/api/admin" + strings.TrimPrefix(path, "/v2/admin")
-	}
 	switch path {
 	case "/api/admin/provider/disable":
 		if id == "" {

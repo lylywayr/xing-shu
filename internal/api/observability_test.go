@@ -17,7 +17,7 @@ func TestAuditViewFiltersAndPaginates(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := httptest.NewRecorder()
-	AuditView(path).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/v2/admin/recent?model=beta&status=500&limit=1", nil))
+	AuditView(path).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/admin/recent?model=beta&status=500&limit=1", nil))
 	var body struct {
 		Requests []map[string]any `json:"requests"`
 		Total    int              `json:"total"`
@@ -34,7 +34,7 @@ func TestAlertActionPersistsState(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := httptest.NewRecorder()
-	AlertAction(path).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v2/admin/alerts/action", strings.NewReader(`{"id":"a1","action":"acknowledge","note":"handled"}`)))
+	AlertAction(path).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/admin/alerts/action", strings.NewReader(`{"id":"a1","action":"acknowledge","note":"handled"}`)))
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}

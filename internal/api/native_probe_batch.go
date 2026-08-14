@@ -206,7 +206,7 @@ func (b *ProbeBatchRuntime) load() {
 	if b.dir == "" {
 		return
 	}
-	data, err := os.ReadFile(filepath.Join(b.dir, "probe-history-starcore.json"))
+	data, err := os.ReadFile(filepath.Join(b.dir, "probe-history-xing-shu.json"))
 	if err != nil {
 		return
 	}
@@ -222,8 +222,8 @@ func (b *ProbeBatchRuntime) saveLocked() {
 	if err != nil {
 		return
 	}
-	tmp := filepath.Join(b.dir, "probe-history-starcore.json.tmp")
+	tmp := filepath.Join(b.dir, "probe-history-xing-shu.json.tmp")
 	if os.WriteFile(tmp, data, 0600) == nil {
-		_ = os.Rename(tmp, filepath.Join(b.dir, "probe-history-starcore.json"))
+		_ = os.Rename(tmp, filepath.Join(b.dir, "probe-history-xing-shu.json"))
 	}
 }

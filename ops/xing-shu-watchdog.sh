@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
-BASE_URL=${STARCORE_URL:-http://127.0.0.1:12100}
-STATE=${STARCORE_WATCHDOG_STATE_DIR:-/var/run/starcore-watchdog}
-MAX_FAILURES=${STARCORE_WATCHDOG_MAX_FAILURES:-5}
-DRY_RUN=${STARCORE_WATCHDOG_DRY_RUN:-0}
+BASE_URL=${XING_SHU_URL:-http://127.0.0.1:12100}
+STATE=${XING_SHU_WATCHDOG_STATE_DIR:-/var/run/xing-shu-watchdog}
+MAX_FAILURES=${XING_SHU_WATCHDOG_MAX_FAILURES:-5}
+DRY_RUN=${XING_SHU_WATCHDOG_DRY_RUN:-0}
 LOCK=$STATE/lock
 FAIL=$STATE/failures
 LAST_FAILURE=$STATE/last_failure_at
@@ -23,8 +23,8 @@ printf '%s' "$n" > "$FAIL"
 [ "$n" -lt "$MAX_FAILURES" ] && exit 1
 printf '%s\n' "$(date -Iseconds)" > "$STATE/fault"
 if [ "$DRY_RUN" = "1" ]; then
-  logger -t starcore-watchdog 'starcore failed threshold; dry-run fault marker written'
+  logger -t xing-shu-watchdog 'xing-shu failed threshold; dry-run fault marker written'
   exit 0
 fi
-logger -t starcore-watchdog 'starcore failed threshold; no historical service fallback is configured'
+logger -t xing-shu-watchdog 'xing-shu failed threshold; operator intervention required'
 exit 1

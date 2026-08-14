@@ -19,7 +19,7 @@ func TestRoutingExplainReportsRequestAndScoreBreakdown(t *testing.T) {
 		{ID: "disabled-c", Provider: "p2", Status: catalog.Disabled, AutoRoutable: false, Score: 90},
 	}}, nil)
 	service := &routing.Service{Providers: map[string]routing.ProviderConfig{"p1": {ID: "p1", BaseURL: "http://p1"}, "p2": {ID: "p2", BaseURL: "http://p2"}}, Manager: manager, Knowledge: runtime.NewKnowledgeStore()}
-	req := httptest.NewRequest(http.MethodPost, "/v2/admin/routing/explain", strings.NewReader(`{"model":"auto","messages":[{"role":"user","content":"use a tool"}],"tools":[{"type":"function","function":{"name":"lookup"}}]}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/routing/explain", strings.NewReader(`{"model":"auto","messages":[{"role":"user","content":"use a tool"}],"tools":[{"type":"function","function":{"name":"lookup"}}]}`))
 	w := httptest.NewRecorder()
 	RoutingExplain(service).ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
@@ -44,7 +44,7 @@ func TestRoutingExplainReportsRequestAndScoreBreakdown(t *testing.T) {
 
 func TestRoutingExplainRejectsInvalidJSON(t *testing.T) {
 	service := &routing.Service{}
-	req := httptest.NewRequest(http.MethodPost, "/v2/admin/routing/explain", strings.NewReader("not-json"))
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/routing/explain", strings.NewReader("not-json"))
 	w := httptest.NewRecorder()
 	RoutingExplain(service).ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -55,7 +55,7 @@ func TestRoutingExplainRejectsInvalidJSON(t *testing.T) {
 func TestRoutingExplainKeepsGETItemsContract(t *testing.T) {
 	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "m1", Provider: "p1", Status: catalog.Active, AutoRoutable: true}}}, nil)
 	service := &routing.Service{Providers: map[string]routing.ProviderConfig{"p1": {ID: "p1", BaseURL: "http://p1"}}, Manager: manager}
-	req := httptest.NewRequest(http.MethodGet, "/v2/admin/routing/explain", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/routing/explain", nil)
 	w := httptest.NewRecorder()
 	RoutingExplain(service).ServeHTTP(w, req)
 	var body map[string]any
@@ -77,7 +77,7 @@ func TestRoutingExplainMatchesSelectAutoKnowledgeBonus(t *testing.T) {
 	if selected := service.SelectAuto(body); selected != "m1" {
 		t.Fatalf("expected knowledge-boosted m1, got %s", selected)
 	}
-	req := httptest.NewRequest(http.MethodPost, "/v2/admin/routing/explain", strings.NewReader(string(body)))
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/routing/explain", strings.NewReader(string(body)))
 	w := httptest.NewRecorder()
 	RoutingExplain(service).ServeHTTP(w, req)
 	var response map[string]any

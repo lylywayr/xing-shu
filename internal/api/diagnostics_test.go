@@ -11,11 +11,11 @@ import (
 
 func TestRuntimeDiagnosticsReturnsFileMetrics(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "reviews-starcore.json"), []byte(`{"r":{}}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "reviews-xing-shu.json"), []byte(`{"r":{}}`), 0600); err != nil {
 		t.Fatal(err)
 	}
 	w := httptest.NewRecorder()
-	RuntimeDiagnostics(dir).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/v2/admin/diagnostics", nil))
+	RuntimeDiagnostics(dir).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/admin/diagnostics", nil))
 	var body struct {
 		Items []RuntimeFileMetric `json:"items"`
 	}
@@ -30,7 +30,7 @@ func TestWatchdogStatusReadsFailureState(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := httptest.NewRecorder()
-	WatchdogStatusView(dir).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/v2/admin/watchdog", nil))
+	WatchdogStatusView(dir).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/admin/watchdog", nil))
 	var body WatchdogStatus
 	if json.Unmarshal(w.Body.Bytes(), &body) != nil || body.ConsecutiveFailures != 3 || body.Healthy {
 		t.Fatalf("invalid watchdog state: %s", w.Body.String())
