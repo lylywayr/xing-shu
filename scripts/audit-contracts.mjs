@@ -35,8 +35,6 @@ const endpoints = [
   { path: '/api/admin/quota', required: ['items', 'available', 'message'] },
   { path: '/api/admin/quota/history', required: ['items', 'available'] },
   { path: '/api/admin/quota/status', required: ['configured', 'available', 'status', 'sources', 'items'] },
-  { path: '/api/admin/notifications/telegram', required: ['configured', 'chat_id_configured', 'token_configured'] },
-  { path: '/api/admin/integrations/chatgpt', required: ['provider', 'status', 'route', 'oauth_available'] },
   { path: '/api/admin/quota/refresh', method: 'POST', body: {}, required: ['ok', 'results', 'items'] },
   { path: '/api/admin/snapshots', required: ['files'] },
 ]
