@@ -37,6 +37,27 @@ func TestSetAllowActivatesUnknownModel(t *testing.T) {
 	}
 }
 
+func TestApplyDefaultApprovalPolicyMigratesOnlyFreeLLMAPI(t *testing.T) {
+	manager := NewManager(Catalog{Models: []Model{
+		{ID: "free", Provider: FreeLLMAPIProviderID, Status: Unknown},
+		{ID: "stale", Provider: FreeLLMAPIProviderID, Status: Stale},
+		{ID: "external", Provider: "workbuddy", Status: Unknown},
+	}}, nil)
+	if got := manager.ApplyDefaultApprovalPolicy(); got != 1 {
+		t.Fatalf("expected one migrated model, got %d", got)
+	}
+	models := manager.Snapshot().Models
+	if models[0].Status != Active || !models[0].AutoRoutable {
+		t.Fatalf("FreeLLMAPI model was not migrated: %+v", models[0])
+	}
+	if models[1].Status != Stale || models[1].AutoRoutable || models[2].Status != Unknown || models[2].AutoRoutable {
+		t.Fatalf("migration changed protected models: %+v", models)
+	}
+	if got := manager.ApplyDefaultApprovalPolicy(); got != 0 {
+		t.Fatalf("migration must be idempotent, got %d changes", got)
+	}
+}
+
 func TestLoadStateMissingFileIsEmpty(t *testing.T) {
 	state, err := LoadState(filepath.Join(t.TempDir(), "missing.json"))
 	if err != nil || len(state.Catalog.Models) != 0 || state.Allow == nil {

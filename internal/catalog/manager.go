@@ -151,6 +151,38 @@ func (m *Manager) UpdateModel(id string, fn func(*Model)) bool {
 	return false
 }
 
+// ApplyDefaultApprovalPolicy migrates existing catalog entries to the current
+// provider-level approval policy. It never revives stale or orphaned models.
+func (m *Manager) ApplyDefaultApprovalPolicy() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	changed := 0
+	for i := range m.Current.Models {
+		model := &m.Current.Models[i]
+		if !IsAutoApprovedProvider(model.Provider) || IsMeta(model.ID) || model.Status == Stale || model.Orphaned {
+			continue
+		}
+		modelChanged := false
+		if model.Status == Unknown {
+			model.Status = Active
+			modelChanged = true
+		}
+		if model.Status == Active && !model.AutoRoutable {
+			model.AutoRoutable = true
+			modelChanged = true
+		}
+		if modelChanged {
+			model.UpdatedAt = time.Now().UTC()
+			changed++
+		}
+	}
+	if changed > 0 {
+		m.Current.Version = Version()
+		m.persistLocked()
+	}
+	return changed
+}
+
 func (m *Manager) SetAllow(providerID, modelID string, allowed bool) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()

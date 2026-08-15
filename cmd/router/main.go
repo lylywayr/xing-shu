@@ -118,6 +118,8 @@ func main() {
 		routingService.QuotaProvider = quotaManager.Get
 	}
 	integrationRuntime := &api.IntegrationRuntime{FreeLLMAPI: freeManager, Catalog: manager, Quota: quotaManager, Audit: observability.New(dir)}
+	manager.ApplyDefaultApprovalPolicy()
+	integrationRuntime.ApplyStateToCatalog()
 	if freeManager != nil {
 		integrationRuntime.Background(syncCtx, 5*time.Minute)
 	}
