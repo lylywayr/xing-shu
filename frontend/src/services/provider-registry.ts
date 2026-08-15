@@ -8,7 +8,8 @@ export interface ProviderRegistryResponse { items: Provider[]; credential_key_co
 
 export const emptyProviderDraft = (): ProviderDraft => ({ id: '', name: '', base_url: '', api_key: '', kind: 'standard', enabled: true })
 export function providerToDraft(provider: Provider): ProviderDraft { return { id: provider.id, name: provider.name || provider.id, base_url: provider.base_url || '', api_key: '', kind: 'standard', enabled: provider.enabled !== false } }
-export function canValidateProvider(draft: ProviderDraft, editing: boolean): boolean { return /^[a-z0-9][a-z0-9._-]{1,63}$/.test(draft.id) && draft.name.trim().length > 0 && /^https?:\/\//.test(draft.base_url.trim()) && (editing || draft.api_key.trim().length > 0) }
+export function canValidateProvider(draft: ProviderDraft, editing: boolean): boolean { return draft.name.trim().length > 0 && /^https?:\/\//.test(draft.base_url.trim()) && (editing || draft.api_key.trim().length > 0) }
+export function providerDraftMissing(draft: ProviderDraft, editing: boolean): string[] { const missing: string[] = []; if (!draft.name.trim()) missing.push('名称'); if (!/^https?:\/\//.test(draft.base_url.trim())) missing.push('有效的 Base URL'); if (!editing && !draft.api_key.trim()) missing.push('API Key'); return missing }
 export const validationSteps = [
   { key: 'network', label: '网络连接' },
   { key: 'auth', label: '鉴权验证' },

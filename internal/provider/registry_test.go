@@ -23,6 +23,19 @@ func testRegistry(t *testing.T) (*Registry, string) {
 	return r, path
 }
 
+func TestProviderIDFromName(t *testing.T) {
+	first := ProviderIDFromName("Trae")
+	if first == "" || first != ProviderIDFromName("Trae") {
+		t.Fatalf("unstable id: %q", first)
+	}
+	if first == ProviderIDFromName("Other") {
+		t.Fatal("different names must not share ids")
+	}
+	if !providerIDPattern.MatchString(ProviderIDFromName("中文 服务")) {
+		t.Fatalf("generated id invalid: %q", ProviderIDFromName("中文 服务"))
+	}
+}
+
 func TestNormalizeBaseURL(t *testing.T) {
 	cases := map[string]string{
 		"https://api.example.com":       "https://api.example.com/v1",
@@ -45,7 +58,7 @@ func TestNormalizeBaseURL(t *testing.T) {
 
 func TestRegistryEncryptsAndMasksCredentials(t *testing.T) {
 	r, path := testRegistry(t)
-	created, err := r.Create(ProviderInput{ID: "demo", Name: "Demo", BaseURL: "https://api.example.com", APIKey: "sk-super-secret"})
+	created, err := r.Create(ProviderInput{Name: "Demo", BaseURL: "https://api.example.com", APIKey: "sk-super-secret"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +72,7 @@ func TestRegistryEncryptsAndMasksCredentials(t *testing.T) {
 	if strings.Contains(string(raw), "sk-super-secret") {
 		t.Fatal("plaintext API key persisted")
 	}
-	config, ok := r.Config("demo")
+	config, ok := r.Config(created.ID)
 	if !ok || config.APIKey != "sk-super-secret" || config.BaseURL != "https://api.example.com/v1" {
 		t.Fatalf("bad config: %+v", config)
 	}
@@ -67,7 +80,7 @@ func TestRegistryEncryptsAndMasksCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config, ok = reloaded.Config("demo")
+	config, ok = reloaded.Config(created.ID)
 	if !ok || config.APIKey != "sk-super-secret" {
 		t.Fatal("encrypted key did not survive reload")
 	}

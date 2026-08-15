@@ -6,6 +6,8 @@ services:
         GOPROXY: ${GOPROXY:-https://proxy.golang.org,direct}
     image: ${XING_SHU_IMAGE:-xing-shu:latest}
     container_name: ${XING_SHU_CONTAINER_NAME:-xing-shu}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${XING_SHU_PORT:-12100}:12100"
     environment:

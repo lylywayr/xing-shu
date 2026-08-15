@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -157,10 +158,40 @@ func NormalizeBaseURL(raw string) (string, error) {
 	return strings.TrimRight(u.String(), "/"), nil
 }
 
+func ProviderIDFromName(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	var b strings.Builder
+	lastDash := false
+	for _, r := range name {
+		valid := (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '.' || r == '_'
+		if valid {
+			b.WriteRune(r)
+			lastDash = false
+			continue
+		}
+		if !lastDash && b.Len() > 0 {
+			b.WriteByte('-')
+			lastDash = true
+		}
+	}
+	id := strings.Trim(b.String(), "-._")
+	if len(id) > 48 {
+		id = strings.Trim(id[:48], "-._")
+	}
+	if len(id) < 2 {
+		id = "provider"
+	}
+	hash := sha256.Sum256([]byte(name))
+	return fmt.Sprintf("%s-%x", id, hash[:3])
+}
+
 func validateInput(input ProviderInput, requireID bool) (ProviderInput, error) {
 	input.ID = strings.ToLower(strings.TrimSpace(input.ID))
 	input.Name = strings.TrimSpace(input.Name)
 	input.Kind = strings.TrimSpace(input.Kind)
+	if input.ID == "" && input.Name != "" {
+		input.ID = ProviderIDFromName(input.Name)
+	}
 	if requireID && !providerIDPattern.MatchString(input.ID) {
 		return input, errors.New("id must be 2-64 lowercase letters, numbers, dot, underscore, or hyphen")
 	}
