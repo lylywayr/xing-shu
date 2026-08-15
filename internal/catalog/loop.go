@@ -18,11 +18,11 @@ func StartSyncWithObserver(ctx context.Context, m *Manager, configs map[string]p
 	StartSyncWithObserverGated(ctx, m, configs, interval, observer, nil)
 }
 
-func StartSyncWithObserverGated(ctx context.Context, m *Manager, configs map[string]provider.Config, interval time.Duration, observer SyncObserver, gate SyncGate) {
+func StartSyncWithSource(ctx context.Context, m *Manager, source func() map[string]provider.Config, interval time.Duration, observer SyncObserver, gate SyncGate) {
 	go func() {
 		run := func() {
-			for _, c := range configs {
-				if c.BaseURL == "" || (gate != nil && !gate(c.ID)) {
+			for _, c := range source() {
+				if c.BaseURL == "" || c.Source == provider.SourceExternal || (gate != nil && !gate(c.ID)) {
 					continue
 				}
 				result := m.Sync(ctx, c)
@@ -46,4 +46,8 @@ func StartSyncWithObserverGated(ctx context.Context, m *Manager, configs map[str
 			}
 		}
 	}()
+}
+
+func StartSyncWithObserverGated(ctx context.Context, m *Manager, configs map[string]provider.Config, interval time.Duration, observer SyncObserver, gate SyncGate) {
+	StartSyncWithSource(ctx, m, func() map[string]provider.Config { return configs }, interval, observer, gate)
 }

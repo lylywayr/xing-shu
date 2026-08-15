@@ -12,7 +12,7 @@
 
 - `cmd/router`：服务启动、配置装配、健康与协议入口。
 - `internal/catalog`：模型目录、同步、生命周期。
-- `internal/provider`：通用 Provider HTTP 客户端与错误分类。
+- `internal/provider`：通用 Provider 注册中心、AES-GCM 凭证存储、OpenAI-compatible URL 规范、连接验证、HTTP 客户端与错误分类。
 - `internal/integration`：FreeLLMAPI 状态、模型同步和只读本地额度。
 - `internal/routing`：候选排序、会话亲和、失败切换和 Provider gate。
 - `internal/governance`：allow/deny、快照、审计和撤销。
@@ -25,7 +25,7 @@
 
 公开仓库不得包含 `.env`、`data/`、数据库、JSONL 运行日志、Cookie、完整 API Key、管理员密码、NAS 地址或备份路径。`.gitignore` 与 `.dockerignore` 是第一道门禁，发布前还要执行 `git grep` 和正则扫描。
 
-唯一正式持久化挂载是宿主机配置的 `XING_SHU_DATA_PATH:/data`。FreeLLMAPI 数据卷不属于默认公开 Compose；如确需使用集成，必须由部署者明确配置只读挂载、显式授权并确认风险。
+唯一正式持久化挂载是宿主机配置的 `XING_SHU_DATA_PATH:/data`。动态 Provider 凭证保存在 `/data/providers-xing-shu.json`，API Key 使用 `XING_SHU_CREDENTIAL_KEY` 做 AES-GCM 加密；主密钥仅由部署环境注入，丢失后动态凭证不可恢复。环境变量 Provider 在注册中心中只读，删除或停用动态 Provider 后目录模型转为 `stale/orphaned` 并退出 Auto。FreeLLMAPI 数据卷不属于默认公开 Compose；如确需使用集成，必须由部署者明确配置只读挂载、显式授权并确认风险。
 
 ## 4. 本地验证顺序
 

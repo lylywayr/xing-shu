@@ -81,6 +81,7 @@ func (m *Manager) SyncRaw(providerID string, raw []provider.RawModel) provider.R
 	}
 	for i := range next {
 		if oldModel, ok := previous[next[i].ID]; ok {
+			next[i].Orphaned = false
 			next[i].StructuredOutput = oldModel.StructuredOutput
 			next[i].StructuredOutputKnown = oldModel.StructuredOutputKnown
 			next[i].CapabilityEvidence = oldModel.CapabilityEvidence
@@ -170,6 +171,37 @@ func (m *Manager) SetAllow(providerID, modelID string, allowed bool) bool {
 		m.persistLocked()
 	}
 	return changed
+}
+
+func (m *Manager) ReconcileProviders(configs map[string]provider.Config) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	changed := false
+	for i := range m.Current.Models {
+		model := &m.Current.Models[i]
+		_, online := configs[model.Provider]
+		if !online {
+			if model.Status != Stale || model.AutoRoutable || !model.Orphaned {
+				model.Status = Stale
+				model.AutoRoutable = false
+				model.Orphaned = true
+				model.UpdatedAt = time.Now().UTC()
+				changed = true
+			}
+			continue
+		}
+		if model.Status == Stale && model.Orphaned {
+			model.Status = Unknown
+			model.AutoRoutable = false
+			model.Orphaned = false
+			model.UpdatedAt = time.Now().UTC()
+			changed = true
+		}
+	}
+	if changed {
+		m.Current.Version = Version()
+		m.persistLocked()
+	}
 }
 
 func (m *Manager) AllowSnapshot() map[string]bool {

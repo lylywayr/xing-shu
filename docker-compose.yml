@@ -10,6 +10,7 @@ services:
       - "${XING_SHU_PORT:-12100}:12100"
     environment:
       XING_SHU_DATA_DIR: /data
+      XING_SHU_CREDENTIAL_KEY: ${XING_SHU_CREDENTIAL_KEY:-}
       XING_SHU_NATIVE_CHAT: ${XING_SHU_NATIVE_CHAT:-true}
       LISTEN: ":12100"
       ADMIN_API_KEY: ${ADMIN_API_KEY:-}

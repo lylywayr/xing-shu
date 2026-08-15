@@ -104,7 +104,7 @@ func (b *ProbeBatchRuntime) validate(targets []ProbeTarget) ([]ProbeTarget, erro
 		if !found {
 			return nil, fmt.Errorf("model not active: %s/%s", target.Provider, target.Model)
 		}
-		if _, ok := b.probe.Configs[target.Provider]; !ok {
+		if _, ok := b.probe.configs()[target.Provider]; !ok {
 			return nil, fmt.Errorf("provider not found: %s", target.Provider)
 		}
 		valid = append(valid, target)

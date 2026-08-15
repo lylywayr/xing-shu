@@ -20,6 +20,7 @@ type ProviderConfig struct {
 }
 type Service struct {
 	Providers     map[string]ProviderConfig
+	ConfigSource  func() map[string]ProviderConfig
 	ProviderGate  map[string]func() bool
 	QuotaProvider func(string) (quota.Snapshot, bool)
 	Models        []catalog.Model
@@ -28,6 +29,13 @@ type Service struct {
 	Disabled      interface{ IsDisabled(string) bool }
 	Client        *provider.ChatClient
 	Knowledge     *runtime.KnowledgeStore
+}
+
+func (s *Service) providers() map[string]ProviderConfig {
+	if s.ConfigSource != nil {
+		return s.ConfigSource()
+	}
+	return s.Providers
 }
 
 func (s *Service) models() []catalog.Model {
@@ -112,6 +120,13 @@ func (s *Service) ProviderFor(name string) string {
 	}
 	return ""
 }
+func ProviderConfigs(configs map[string]provider.Config) map[string]ProviderConfig {
+	out := make(map[string]ProviderConfig, len(configs))
+	for id, c := range configs {
+		out[id] = ProviderConfig{ID: c.ID, BaseURL: c.BaseURL, APIKey: c.APIKey, Kind: c.Kind}
+	}
+	return out
+}
 func (s *Service) QuotaExhausted(id string) bool {
 	if s.QuotaProvider != nil {
 		if q, ok := s.QuotaProvider(id); ok && q.HardExhausted(time.Now()) {
@@ -139,7 +154,7 @@ func (s *Service) HasProvider(id string) bool {
 	if q, ok := s.Quota[id]; ok && q.HardExhausted(time.Now()) {
 		return false
 	}
-	p, ok := s.Providers[id]
+	p, ok := s.providers()[id]
 	return ok && p.BaseURL != ""
 }
 func (s *Service) Complete(ctx context.Context, body []byte, model string) (*http.Response, error) {
@@ -161,14 +176,15 @@ func (s *Service) Complete(ctx context.Context, body []byte, model string) (*htt
 		body = replaceModel(body, name)
 	}
 	var p ProviderConfig
+	providers := s.providers()
 	for _, m := range s.models() {
 		if m.ID == name && m.AutoRoutable {
-			p = s.Providers[m.Provider]
+			p = providers[m.Provider]
 			break
 		}
 	}
 	if p.ID == "" {
-		for _, x := range s.Providers {
+		for _, x := range providers {
 			if strings.HasPrefix(name, x.ID+"/") {
 				p = x
 				break

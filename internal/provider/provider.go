@@ -19,10 +19,21 @@ const (
 
 type Config struct {
 	ID      string
+	Name    string
 	BaseURL string
 	APIKey  string
 	Kind    string
+	Source  string
+	Enabled bool
 }
+
+func (c Config) EnabledOrDefault() bool {
+	if c.Source == "" {
+		return true
+	}
+	return c.Enabled
+}
+
 type Result struct {
 	Status      int
 	ErrorType   ErrorType

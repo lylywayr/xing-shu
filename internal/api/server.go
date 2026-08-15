@@ -18,6 +18,7 @@ type Server struct {
 	Catalog            catalog.Catalog
 	Manager            *catalog.Manager
 	ProviderRuntime    *ProviderRuntime
+	ProviderRegistry   *ProviderRegistryRuntime
 	IntegrationRuntime *IntegrationRuntime
 	Ops                *OpsState
 	GovernanceRuntime  *GovernanceRuntime
@@ -172,6 +173,15 @@ func (s *Server) Routes() http.Handler {
 	}
 	m.Handle("/api/admin/alerts", s.guard(auth.Read, AlertsView(alertsPath)))
 	m.Handle("/api/admin/alerts/action", s.guard(auth.Operate, AlertAction(alertsPath)))
+	if s.ProviderRegistry != nil {
+		m.Handle("/api/admin/provider-registry", s.guard(auth.Read, s.ProviderRegistry.List))
+		m.Handle("/api/admin/provider-registry/validate", s.guard(auth.Probe, s.ProviderRegistry.Validate))
+		m.Handle("/api/admin/provider-registry/create", s.guard(auth.Operate, s.ProviderRegistry.Create))
+		m.Handle("/api/admin/provider-registry/update", s.guard(auth.Operate, s.ProviderRegistry.Update))
+		m.Handle("/api/admin/provider-registry/enable", s.guard(auth.Operate, s.ProviderRegistry.Enable))
+		m.Handle("/api/admin/provider-registry/disable", s.guard(auth.Operate, s.ProviderRegistry.Disable))
+		m.Handle("/api/admin/provider-registry/delete", s.guard(auth.Operate, s.ProviderRegistry.Delete))
+	}
 	if s.ProviderRuntime != nil {
 		m.Handle("/api/admin/providers", s.guard(auth.Read, s.ProviderRuntime.Handler))
 		m.Handle("/api/admin/sync", s.guard(auth.Operate, s.ProviderRuntime.Sync))
@@ -230,7 +240,7 @@ func (s *Server) Routes() http.Handler {
 		if s.ProviderRuntime == nil {
 			return map[string]provider.Config{}
 		}
-		return s.ProviderRuntime.Configs
+		return s.ProviderRuntime.configs()
 	}(), s.Manager, s.Ops)))
 	m.Handle("/api/admin/consistency", s.guard(auth.Read, NativeConsistency(s.Manager, s.Governance)))
 	m.Handle("/api/admin/regression", s.guard(auth.Read, NativeRegression(s.Manager)))

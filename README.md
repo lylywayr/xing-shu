@@ -41,6 +41,7 @@ curl -fsS http://127.0.0.1:12100/health/ready
 - `PROVIDER_A_URL/KEY`、`PROVIDER_B_URL/KEY`、`PROVIDER_C_URL/KEY`：通用 Provider 槽位。URL 应指向兼容 API 的 `/v1` 基地址。
 - `FREELLMAPI_URL/KEY`：可选 FreeLLMAPI 集成；需要在控制台显式授权。
 - `XING_SHU_DATA_PATH`：宿主机唯一持久化目录，默认 `./data`。
+- `XING_SHU_CREDENTIAL_KEY`：动态 Provider API Key 的 AES-GCM 主密钥，必须是 Base64 编码的 32 字节随机值；丢失后动态凭证不可恢复。
 所有密钥只通过部署环境注入。星枢不会在公开 API、审计或日志中返回完整密钥。
 
 ## 开发与验证
@@ -80,6 +81,17 @@ Dockerfile 使用标准 Node/Go 多阶段构建；iSH ARM64 上的本地 Vitest/
 - 1024px 以下内容全宽，指标保持合理分栏；
 - 桌面使用固定分组侧栏和独立内容区；
 - 所有断点禁止横向溢出，功能与 `/api/admin/*` 契约保持不变。
+
+### 通用 Provider 接入
+
+资源池支持从手机或桌面直接接入 OpenAI-compatible Provider：
+
+1. 填写 Provider ID、名称、Base URL 和 API Key；
+2. 星枢规范化 Base URL，并真实验证网络、鉴权、`/models` 与 `/chat/completions`；
+3. 四步全部通过后，API Key 使用 `XING_SHU_CREDENTIAL_KEY` 做 AES-GCM 加密并写入 `providers-xing-shu.json`；
+4. 保存后立即同步模型；可继续编辑、重新验证、停用、启用或删除。
+
+环境变量 Provider 在控制台中标记为只读。停用或删除动态 Provider 后，历史模型保留为 `stale/orphaned` 且立即退出 Auto。FreeLLMAPI 仍是独立模块，不纳入通用注册中心。
 
 ## 发布与恢复
 

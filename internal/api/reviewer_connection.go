@@ -13,8 +13,16 @@ import (
 )
 
 type ReviewerConnectionRuntime struct {
-	Configs map[string]provider.Config
-	Manager *catalog.Manager
+	Configs      map[string]provider.Config
+	ConfigSource func() map[string]provider.Config
+	Manager      *catalog.Manager
+}
+
+func (r *ReviewerConnectionRuntime) configs() map[string]provider.Config {
+	if r.ConfigSource != nil {
+		return r.ConfigSource()
+	}
+	return r.Configs
 }
 
 type reviewerConnectionRequest struct {
@@ -37,7 +45,7 @@ func (r *ReviewerConnectionRuntime) Test(w http.ResponseWriter, req *http.Reques
 		http.Error(w, "active model not found", 400)
 		return
 	}
-	config, ok := r.Configs[input.Provider]
+	config, ok := r.configs()[input.Provider]
 	if !ok {
 		http.Error(w, "provider not found", 400)
 		return

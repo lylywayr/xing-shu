@@ -63,15 +63,20 @@ func main() {
 		}
 	})
 	sharedRuntime := api.NewRuntimeAt(dir)
-	configs := provider.LoadConfigs()
+	envConfigs := provider.LoadEnvironmentConfigs()
 	freeManager, _ := integration.New(filepath.Join(dir, "integrations-xing-shu.json"), os.Getenv("FREELLMAPI_URL"), os.Getenv("FREELLMAPI_KEY"))
 	if freeManager != nil {
 		freeManager.SetLocalQuotaPath(os.Getenv("FREELLMAPI_DB_PATH"))
 	}
 	if freeManager != nil && freeManager.Configured() {
 		provider.RegisterExternalConfig(integration.FreeLLMAPIID, freeManager.Config())
-		configs = provider.LoadConfigs()
 	}
+	registry, err := provider.NewRegistry(filepath.Join(dir, "providers-xing-shu.json"), os.Getenv("XING_SHU_CREDENTIAL_KEY"), envConfigs)
+	if err != nil {
+		log.Fatalf("load provider registry: %v", err)
+	}
+	configs := registry.Snapshot()
+	manager.ReconcileProviders(configs)
 	if selected := sharedRuntime.ReviewerSelection.Get(); selected.Model != "" {
 		if manager.RestoreReviewerCapability(selected.Model, selected.Provider) {
 			sharedRuntime.ReviewerSelection.Success()
@@ -80,7 +85,7 @@ func main() {
 	syncCtx := context.Background()
 	ops := api.NewOps()
 	ops.Load(filepath.Join(dir, "provider-ops-xing-shu.json"))
-	catalog.StartSyncWithObserverGated(syncCtx, manager, configs, 60*time.Second, func(providerID string, result provider.Result) {
+	catalog.StartSyncWithSource(syncCtx, manager, registry.Snapshot, 60*time.Second, func(providerID string, result provider.Result) {
 		if result.ErrorType == "" {
 			ops.ClearSyncError(providerID)
 			return
@@ -92,17 +97,14 @@ func main() {
 		}
 		return true
 	})
-	probe := &api.ProbeRuntime{Configs: configs, Manager: manager, Gate: map[string]func() bool{}}
+	probe := &api.ProbeRuntime{Configs: configs, ConfigSource: registry.Snapshot, Manager: manager, Gate: map[string]func() bool{}}
 	if freeManager != nil {
 		probe.Gate[integration.FreeLLMAPIID] = freeManager.Authorized
 	}
 	probeBatch := api.NewProbeBatchRuntime(probe, dir)
 	governanceRules := api.NewGovernanceRulesRuntime(manager, dir)
-	reviewerConnection := &api.ReviewerConnectionRuntime{Configs: configs, Manager: manager}
-	routingService := &routing.Service{Providers: map[string]routing.ProviderConfig{}, ProviderGate: map[string]func() bool{}, Models: manager.Snapshot().Models, Manager: manager, Disabled: ops, Client: provider.NewChatClient(), Knowledge: sharedRuntime.Knowledge}
-	for id, c := range configs {
-		routingService.Providers[id] = routing.ProviderConfig{ID: c.ID, BaseURL: c.BaseURL, APIKey: c.APIKey, Kind: c.Kind}
-	}
+	reviewerConnection := &api.ReviewerConnectionRuntime{Configs: configs, ConfigSource: registry.Snapshot, Manager: manager}
+	routingService := &routing.Service{Providers: routing.ProviderConfigs(configs), ConfigSource: func() map[string]routing.ProviderConfig { return routing.ProviderConfigs(registry.Snapshot()) }, ProviderGate: map[string]func() bool{}, Models: manager.Snapshot().Models, Manager: manager, Disabled: ops, Client: provider.NewChatClient(), Knowledge: sharedRuntime.Knowledge}
 	if freeManager != nil {
 		routingService.ProviderGate[integration.FreeLLMAPIID] = freeManager.RouteEnabled
 	}
@@ -120,11 +122,13 @@ func main() {
 		integrationRuntime.Background(syncCtx, 5*time.Minute)
 	}
 	quotaRuntime := api.NewQuotaRuntimeFromEnvWithConfigs(quotaManager, configs)
-	providerRuntime := &api.ProviderRuntime{Configs: configs, Manager: manager, Ops: ops, SyncGate: map[string]func() bool{}}
+	providerRuntime := &api.ProviderRuntime{Configs: configs, ConfigSource: registry.Snapshot, Manager: manager, Ops: ops, SyncGate: map[string]func() bool{}}
 	if freeManager != nil {
 		providerRuntime.SyncGate[integration.FreeLLMAPIID] = freeManager.Authorized
 	}
-	s := &api.Server{Auth: adminAuthorizer(), Catalog: state.Catalog, Manager: manager, ProviderRuntime: providerRuntime, IntegrationRuntime: integrationRuntime, Ops: ops, ProbeRuntime: probe, ProbeBatchRuntime: probeBatch, GovernanceRules: governanceRules, ReviewerConnection: reviewerConnection, GovernanceRuntime: &api.GovernanceRuntime{Snapshots: snap, Catalog: manager}, QuotaManager: quotaManager, QuotaRuntime: quotaRuntime, RuntimeLearning: sharedRuntime.Learning, Runtime: sharedRuntime, RoutingService: routingService, DataDir: dir, Governance: gov}
+	providerRegistry := &api.ProviderRegistryRuntime{Registry: registry, Manager: manager}
+	registry.SetOnChanged(func() { manager.ReconcileProviders(registry.Snapshot()) })
+	s := &api.Server{Auth: adminAuthorizer(), Catalog: state.Catalog, Manager: manager, ProviderRuntime: providerRuntime, ProviderRegistry: providerRegistry, IntegrationRuntime: integrationRuntime, Ops: ops, ProbeRuntime: probe, ProbeBatchRuntime: probeBatch, GovernanceRules: governanceRules, ReviewerConnection: reviewerConnection, GovernanceRuntime: &api.GovernanceRuntime{Snapshots: snap, Catalog: manager}, QuotaManager: quotaManager, QuotaRuntime: quotaRuntime, RuntimeLearning: sharedRuntime.Learning, Runtime: sharedRuntime, RoutingService: routingService, DataDir: dir, Governance: gov}
 	mux := http.NewServeMux()
 	mux.Handle("/", staticHandler(http.FileServer(http.Dir("/app/web"))))
 	mux.Handle("/admin/ui", http.RedirectHandler("/", http.StatusFound))

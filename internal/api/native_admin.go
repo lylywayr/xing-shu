@@ -10,15 +10,26 @@ import (
 )
 
 type ProviderRuntime struct {
-	Configs  map[string]provider.Config
-	Manager  *catalog.Manager
-	Ops      *OpsState
-	SyncGate map[string]func() bool
+	Configs      map[string]provider.Config
+	ConfigSource func() map[string]provider.Config
+	Manager      *catalog.Manager
+	Ops          *OpsState
+	SyncGate     map[string]func() bool
+}
+
+func (p ProviderRuntime) configs() map[string]provider.Config {
+	if p.ConfigSource != nil {
+		return p.ConfigSource()
+	}
+	return p.Configs
 }
 
 func (p ProviderRuntime) List() []map[string]any {
 	out := []map[string]any{}
-	for id, c := range p.Configs {
+	for id, c := range p.configs() {
+		if c.Source == provider.SourceExternal {
+			continue
+		}
 		disabled := p.Ops != nil && p.Ops.IsDisabled(id)
 		status := "active"
 		if disabled {
@@ -85,7 +96,10 @@ func (p ProviderRuntime) Sync(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	id := r.URL.Query().Get("id")
 	results := map[string]any{}
-	for name, c := range p.Configs {
+	for name, c := range p.configs() {
+		if c.Source == provider.SourceExternal {
+			continue
+		}
 		if id != "" && id != name {
 			continue
 		}

@@ -40,6 +40,7 @@ type Model struct {
 	ThinkingBlocks        bool                `json:"thinking_blocks"`
 	CapabilityEvidence    map[string]Evidence `json:"capability_evidence,omitempty"`
 	Score                 int                 `json:"score"`
+	Orphaned              bool                `json:"orphaned,omitempty"`
 	UpdatedAt             time.Time           `json:"updated_at"`
 }
 type Catalog struct {

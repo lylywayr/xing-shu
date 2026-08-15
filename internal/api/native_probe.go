@@ -13,9 +13,17 @@ import (
 )
 
 type ProbeRuntime struct {
-	Configs map[string]provider.Config
-	Manager *catalog.Manager
-	Gate    map[string]func() bool
+	Configs      map[string]provider.Config
+	ConfigSource func() map[string]provider.Config
+	Manager      *catalog.Manager
+	Gate         map[string]func() bool
+}
+
+func (p ProbeRuntime) configs() map[string]provider.Config {
+	if p.ConfigSource != nil {
+		return p.ConfigSource()
+	}
+	return p.Configs
 }
 
 func (p ProbeRuntime) Allowed(providerID string) bool {
@@ -35,7 +43,7 @@ func (p ProbeRuntime) Probe(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "provider not authorized", http.StatusForbidden)
 		return
 	}
-	c, ok := p.Configs[id]
+	c, ok := p.configs()[id]
 	if !ok {
 		http.Error(w, "provider not found", 404)
 		return
@@ -78,7 +86,7 @@ func (p ProbeRuntime) probeModel(ctx context.Context, providerID, modelName stri
 	if !p.Allowed(providerID) {
 		return false, http.StatusForbidden, errors.New("provider not authorized")
 	}
-	c, ok := p.Configs[providerID]
+	c, ok := p.configs()[providerID]
 	if !ok {
 		return false, http.StatusNotFound, errors.New("provider not found")
 	}
