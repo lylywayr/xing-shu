@@ -23,6 +23,13 @@ export function autoExclusionReasons(model: Model, provider?: Provider): string[
   return reasons
 }
 
+export function capabilityVerificationComplete(model: Model): boolean {
+  return ['structured_output', 'tools', 'vision'].every(capability => {
+    const evidence = model.capability_evidence?.[capability]
+    return evidence?.source === 'runtime_probe' && evidence?.level === 'protocol'
+  })
+}
+
 export function evidenceGroups(model: Model): Array<{ capability: string; evidence: Row | null }> {
   const names = ['tools', 'vision', 'structured_output']
   return names.map(capability => ({ capability, evidence: model.capability_evidence?.[capability] as unknown as Row || null }))

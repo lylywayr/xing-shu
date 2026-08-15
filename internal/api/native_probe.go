@@ -18,6 +18,18 @@ type ProbeRuntime struct {
 	Manager      *catalog.Manager
 	Gate         map[string]func() bool
 }
+type capabilityProbe struct {
+	Supported  bool
+	Conclusive bool
+	Status     int
+	Err        error
+}
+type capabilityProbeResult struct {
+	OK           bool                        `json:"ok"`
+	Status       int                         `json:"status"`
+	Error        string                      `json:"error,omitempty"`
+	Capabilities map[string]catalog.Evidence `json:"capabilities"`
+}
 
 func (p ProbeRuntime) configs() map[string]provider.Config {
 	if p.ConfigSource != nil {
@@ -25,100 +37,133 @@ func (p ProbeRuntime) configs() map[string]provider.Config {
 	}
 	return p.Configs
 }
-
 func (p ProbeRuntime) Allowed(providerID string) bool {
 	if gate, ok := p.Gate[providerID]; ok && gate != nil {
 		return gate()
 	}
 	return true
 }
-
 func (p ProbeRuntime) Probe(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", 405)
-		return
-	}
-	id, name := r.URL.Query().Get("provider"), r.URL.Query().Get("model")
-	if !p.Allowed(id) {
-		http.Error(w, "provider not authorized", http.StatusForbidden)
-		return
-	}
-	c, ok := p.configs()[id]
-	if !ok {
-		http.Error(w, "provider not found", 404)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
-	body := map[string]any{"model": name, "messages": []any{map[string]any{"role": "user", "content": "Return exactly JSON: {\"ok\":true}"}}, "max_tokens": 8, "response_format": map[string]string{"type": "json_object"}}
-	b, _ := json.Marshal(body)
-	req, e := http.NewRequestWithContext(ctx, "POST", strings.TrimRight(c.BaseURL, "/")+"/chat/completions", strings.NewReader(string(b)))
-	if e != nil {
-		http.Error(w, e.Error(), 500)
+	providerID, modelID := r.URL.Query().Get("provider"), r.URL.Query().Get("model")
+	result := p.probeCapabilities(ctx, providerID, modelID)
+	if result.Error != "" {
+		http.Error(w, result.Error, result.Status)
 		return
 	}
-	req.Header.Set("Authorization", "Bearer "+c.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-	res, e := http.DefaultClient.Do(req)
-	if e != nil {
-		http.Error(w, e.Error(), 502)
-		return
+	writeJSON(w, map[string]any{"provider": providerID, "model": modelID, "ok": result.OK, "capabilities": result.Capabilities, "status": result.Status})
+}
+func (p ProbeRuntime) probeCapabilities(ctx context.Context, providerID, modelID string) capabilityProbeResult {
+	if !p.Allowed(providerID) {
+		return capabilityProbeResult{Status: http.StatusForbidden, Error: "provider not authorized"}
 	}
-	defer res.Body.Close()
-	io.Copy(io.Discard, io.LimitReader(res.Body, 1<<20))
-	okJSON := res.StatusCode >= 200 && res.StatusCode < 300
+	config, ok := p.configs()[providerID]
+	if !ok {
+		return capabilityProbeResult{Status: http.StatusNotFound, Error: "provider not found"}
+	}
+	endpoint := strings.TrimRight(config.BaseURL, "/") + "/chat/completions"
+	checks := []struct {
+		name string
+		body map[string]any
+	}{
+		{"structured_output", map[string]any{"model": modelID, "messages": []any{map[string]any{"role": "user", "content": "Return exactly JSON: {\"ok\":true}"}}, "max_tokens": 16, "response_format": map[string]string{"type": "json_object"}}},
+		{"tools", map[string]any{"model": modelID, "messages": []any{map[string]any{"role": "user", "content": "Call the ping function now."}}, "max_tokens": 16, "tools": []any{map[string]any{"type": "function", "function": map[string]any{"name": "ping", "description": "Return pong", "parameters": map[string]any{"type": "object", "properties": map[string]any{}}}}}, "tool_choice": map[string]any{"type": "function", "function": map[string]string{"name": "ping"}}}},
+		{"vision", map[string]any{"model": modelID, "messages": []any{map[string]any{"role": "user", "content": []any{map[string]any{"type": "text", "text": "Reply with one word."}, map[string]any{"type": "image_url", "image_url": map[string]string{"url": "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="}}}}}, "max_tokens": 8}},
+	}
+	evidence := make(map[string]catalog.Evidence, len(checks))
+	status := http.StatusOK
+	for _, check := range checks {
+		probe := executeProbe(ctx, endpoint, config.APIKey, check.name, check.body)
+		if probe.Err != nil || !probe.Conclusive {
+			return capabilityProbeResult{Status: http.StatusBadGateway, Error: "capability probe unavailable"}
+		}
+		if probe.Status > status {
+			status = probe.Status
+		}
+		evidence[check.name] = catalog.Evidence{Supported: probe.Supported, Confidence: 1, Source: "runtime_probe", Level: "protocol", CheckedAt: time.Now().UTC()}
+	}
 	if p.Manager != nil {
-		p.Manager.UpdateProviderModel(name, id, func(m *catalog.Model) {
-			now := time.Now()
-			if m.CapabilityEvidence == nil {
-				m.CapabilityEvidence = map[string]catalog.Evidence{}
+		p.Manager.UpdateProviderModel(modelID, providerID, func(model *catalog.Model) {
+			if model.CapabilityEvidence == nil {
+				model.CapabilityEvidence = map[string]catalog.Evidence{}
 			}
-			m.CapabilityEvidence["structured_output"] = catalog.Evidence{Supported: okJSON, Confidence: 1, Source: "probe", Level: "runtime", CheckedAt: now}
-			m.StructuredOutput = okJSON
-			m.StructuredOutputKnown = true
-			m.UpdatedAt = now
+			for capability, item := range evidence {
+				model.CapabilityEvidence[capability] = item
+			}
+			model.StructuredOutput, model.StructuredOutputKnown = evidence["structured_output"].Supported, true
+			model.Tools, model.Vision = evidence["tools"].Supported, evidence["vision"].Supported
+			model.UpdatedAt = time.Now().UTC()
 		})
 	}
-	writeJSON(w, map[string]any{"provider": id, "model": name, "json_mode": okJSON, "status": res.StatusCode})
+	return capabilityProbeResult{OK: true, Status: status, Capabilities: evidence}
 }
-
-func (p ProbeRuntime) probeModel(ctx context.Context, providerID, modelName string) (bool, int, error) {
-	if !p.Allowed(providerID) {
-		return false, http.StatusForbidden, errors.New("provider not authorized")
-	}
-	c, ok := p.configs()[providerID]
-	if !ok {
-		return false, http.StatusNotFound, errors.New("provider not found")
-	}
-	body := map[string]any{"model": modelName, "messages": []any{map[string]any{"role": "user", "content": "Return exactly JSON: {\"ok\":true}"}}, "max_tokens": 8, "response_format": map[string]string{"type": "json_object"}}
-	b, err := json.Marshal(body)
+func executeProbe(ctx context.Context, endpoint, key, capability string, body map[string]any) capabilityProbe {
+	encoded, err := json.Marshal(body)
 	if err != nil {
-		return false, 0, err
+		return capabilityProbe{Err: err}
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(c.BaseURL, "/")+"/chat/completions", strings.NewReader(string(b)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(string(encoded)))
 	if err != nil {
-		return false, 0, err
+		return capabilityProbe{Err: err}
 	}
-	req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	req.Header.Set("Authorization", "Bearer "+key)
 	req.Header.Set("Content-Type", "application/json")
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return false, 0, err
+		return capabilityProbe{Err: err}
 	}
 	defer res.Body.Close()
-	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 1<<20))
-	okJSON := res.StatusCode >= 200 && res.StatusCode < 300
-	if p.Manager != nil {
-		p.Manager.UpdateProviderModel(modelName, providerID, func(m *catalog.Model) {
-			now := time.Now()
-			if m.CapabilityEvidence == nil {
-				m.CapabilityEvidence = map[string]catalog.Evidence{}
-			}
-			m.CapabilityEvidence["structured_output"] = catalog.Evidence{Supported: okJSON, Confidence: 1, Source: "probe", Level: "runtime", CheckedAt: now}
-			m.StructuredOutput = okJSON
-			m.StructuredOutputKnown = true
-			m.UpdatedAt = now
-		})
+	raw, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	if err != nil {
+		return capabilityProbe{Err: err}
 	}
-	return okJSON, res.StatusCode, nil
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		conclusive := res.StatusCode >= 400 && res.StatusCode < 500 && res.StatusCode != http.StatusUnauthorized && res.StatusCode != http.StatusForbidden && res.StatusCode != http.StatusRequestTimeout && res.StatusCode != http.StatusTooManyRequests
+		return capabilityProbe{Status: res.StatusCode, Conclusive: conclusive}
+	}
+	var envelope struct {
+		Choices []struct {
+			Message struct {
+				Content   any `json:"content"`
+				ToolCalls []struct {
+					Function struct {
+						Name string `json:"name"`
+					} `json:"function"`
+				} `json:"tool_calls"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if json.Unmarshal(raw, &envelope) != nil || len(envelope.Choices) == 0 {
+		return capabilityProbe{Status: res.StatusCode, Conclusive: false}
+	}
+	message := envelope.Choices[0].Message
+	supported := true
+	switch capability {
+	case "structured_output":
+		text, ok := message.Content.(string)
+		if !ok || json.Unmarshal([]byte(text), &map[string]any{}) != nil {
+			supported = false
+		}
+	case "tools":
+		supported = false
+		for _, call := range message.ToolCalls {
+			if call.Function.Name == "ping" {
+				supported = true
+				break
+			}
+		}
+	}
+	return capabilityProbe{Supported: supported, Conclusive: true, Status: res.StatusCode}
+}
+func (p ProbeRuntime) probeModel(ctx context.Context, providerID, modelID string) (bool, int, error) {
+	result := p.probeCapabilities(ctx, providerID, modelID)
+	if result.Error != "" {
+		return false, result.Status, errors.New(result.Error)
+	}
+	return result.Capabilities["structured_output"].Supported, result.Status, nil
 }

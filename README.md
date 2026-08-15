@@ -91,10 +91,13 @@ Dockerfile 使用标准 Node/Go 多阶段构建；iSH ARM64 上的本地 Vitest/
 3. 四步全部通过后，API Key 使用 `XING_SHU_CREDENTIAL_KEY` 做 AES-GCM 加密并写入 `providers-xing-shu.json`；
 4. 保存后立即同步模型；可继续编辑、重新验证、停用、启用或删除。
 
-模型接入采用明确的双轨策略：
+模型接入采用明确的两级策略：
 
 - **FreeLLMAPI**：发现的模型全部自动进入可路由模型池；FreeLLMAPI 的独立生产路由开关仍然是最终调用闸门；
-- **其他 Provider**：只发现和验证模型，模型默认保持 `unknown`、不可路由；在资源池点击“同步模型”后会展开该 Provider 的模型清单，由用户勾选并确认接入。已选模型变为 `active` 并进入 Auto，取消选择则恢复为 `unknown`；再次同步和重启不会绕过该选择。
+- **其他 Provider 的第一层目录接入**：同步后保持 `unknown`、不可路由；在资源池点击“同步模型”后选择模型，所选模型变为 `active`，可被能力验证，但仍不会进入 Auto；取消选择恢复 `unknown`。
+- **其他 Provider 的第二层 Auto 批准**：能力治理会对已接入模型实际验证结构化输出、Tools 和 Vision 协议，保存带时间与来源的证据。三项验证均完成后，用户可单个或批量批准模型进入 Auto；撤销批准立即退出 Auto。同步和重启不会绕过任一层选择。
+
+教师模型还要求已完成结构化输出协议验证且已获第二层 Auto 批准。
 
 环境变量 Provider 在控制台中标记为只读。停用或删除动态 Provider 后，历史模型保留为 `stale/orphaned` 且立即退出 Auto。FreeLLMAPI 仍是独立模块，不纳入通用注册中心。
 

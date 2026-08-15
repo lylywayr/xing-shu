@@ -13,7 +13,10 @@ const FreeLLMAPIProviderID = "freellmapi"
 // to enter the routable pool without per-model user approval.
 func IsAutoApprovedProvider(providerID string) bool { return providerID == FreeLLMAPIProviderID }
 
-type SyncService struct{ Allow map[string]bool }
+type SyncService struct {
+	Allow    map[string]bool
+	Admitted map[string]bool
+}
 
 func (s SyncService) Apply(providerID string, raw []provider.RawModel) []Model {
 	out := make([]Model, 0, len(raw))
@@ -25,10 +28,12 @@ func (s SyncService) Apply(providerID string, raw []provider.RawModel) []Model {
 		if x.Context < 0 || x.Context > 10_000_000 {
 			x.Context = 0
 		}
-		m := Model{ID: id, Provider: providerID, Object: "model", OwnedBy: providerID, Created: time.Now().Unix(), ContextWindow: x.Context, Tools: x.Tools, Vision: x.Vision, StructuredOutput: x.StructuredOutput || x.JSONMode, StructuredOutputKnown: x.StructuredOutputKnown || x.StructuredOutput || x.JSONMode, Status: Unknown, UpdatedAt: time.Now()}
-		approved := s.Allow[providerID+"/"+x.ID]
-		m.AutoRoutable = !IsMeta(m.ID) && (approved || IsAutoApprovedProvider(providerID))
-		if m.AutoRoutable {
+		key := providerID + "/" + x.ID
+		admitted := s.Admitted[key] || IsAutoApprovedProvider(providerID)
+		m := Model{ID: id, Provider: providerID, Object: "model", OwnedBy: providerID, Created: time.Now().Unix(), ContextWindow: x.Context, Tools: x.Tools, Vision: x.Vision, StructuredOutput: x.StructuredOutput || x.JSONMode, StructuredOutputKnown: x.StructuredOutputKnown || x.StructuredOutput || x.JSONMode, Status: Unknown, Admitted: admitted, UpdatedAt: time.Now()}
+		approved := s.Allow[key]
+		m.AutoRoutable = !IsMeta(m.ID) && IsAutoApprovedProvider(providerID) || (!IsMeta(m.ID) && admitted && approved)
+		if admitted || m.AutoRoutable {
 			m.Status = Active
 		}
 		out = append(out, m)

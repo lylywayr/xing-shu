@@ -9,11 +9,12 @@ import (
 )
 
 type Manager struct {
-	mu      sync.RWMutex
-	Current Catalog
-	Allow   map[string]bool
-	last    map[string]time.Time
-	persist func(State)
+	mu       sync.RWMutex
+	Current  Catalog
+	Allow    map[string]bool
+	Admitted map[string]bool
+	last     map[string]time.Time
+	persist  func(State)
 }
 
 func NewManager(c Catalog, allow map[string]bool) *Manager {
@@ -24,6 +25,15 @@ func NewManagerWithState(state State) *Manager {
 	if state.Allow == nil {
 		state.Allow = map[string]bool{}
 	}
+	if state.Admitted == nil {
+		state.Admitted = map[string]bool{}
+		for key, allowed := range state.Allow {
+			if allowed {
+				state.Admitted[key] = true
+				delete(state.Allow, key)
+			}
+		}
+	}
 	if state.Catalog.Models == nil {
 		state.Catalog.Models = []Model{}
 	}
@@ -31,7 +41,7 @@ func NewManagerWithState(state State) *Manager {
 	for key, value := range state.Last {
 		last[key] = value
 	}
-	return &Manager{Current: state.Catalog, Allow: state.Allow, last: last}
+	return &Manager{Current: state.Catalog, Allow: state.Allow, Admitted: state.Admitted, last: last}
 }
 
 func (m *Manager) SetPersist(fn func(State)) { m.mu.Lock(); m.persist = fn; m.mu.Unlock() }
@@ -40,11 +50,15 @@ func (m *Manager) persistLocked() {
 	if m.persist == nil {
 		return
 	}
-	state := State{Catalog: m.Current, Allow: m.Allow, Last: m.last}
+	state := State{Catalog: m.Current, Allow: m.Allow, Admitted: m.Admitted, Last: m.last}
 	state.Catalog.Models = append([]Model(nil), m.Current.Models...)
 	state.Allow = make(map[string]bool, len(m.Allow))
 	for key, value := range m.Allow {
 		state.Allow[key] = value
+	}
+	state.Admitted = make(map[string]bool, len(m.Admitted))
+	for key, value := range m.Admitted {
+		state.Admitted[key] = value
 	}
 	state.Last = make(map[string]time.Time, len(m.last))
 	for key, value := range m.last {
@@ -70,7 +84,8 @@ func (m *Manager) Sync(ctx context.Context, c provider.Config) provider.Result {
 func (m *Manager) SyncRaw(providerID string, raw []provider.RawModel) provider.Result {
 	res := provider.Result{Status: http.StatusOK, LastSuccess: time.Now()}
 	allow := m.AllowSnapshot()
-	next := SyncService{Allow: allow}.Apply(providerID, raw)
+	admitted := m.AdmissionSnapshot()
+	next := SyncService{Allow: allow, Admitted: admitted}.Apply(providerID, raw)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	previous := map[string]Model{}
@@ -152,24 +167,45 @@ func (m *Manager) UpdateModel(id string, fn func(*Model)) bool {
 }
 
 // ApplyDefaultApprovalPolicy migrates existing catalog entries to the current
-// provider-level approval policy. It never revives stale or orphaned models.
+// two-layer approval policy. It never revives stale or orphaned models.
 func (m *Manager) ApplyDefaultApprovalPolicy() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	changed := 0
 	for i := range m.Current.Models {
 		model := &m.Current.Models[i]
-		if !IsAutoApprovedProvider(model.Provider) || IsMeta(model.ID) || model.Status == Stale || model.Orphaned {
+		if IsMeta(model.ID) || model.Status == Stale || model.Orphaned {
 			continue
 		}
+		key := model.Provider + "/" + model.ID
 		modelChanged := false
-		if model.Status == Unknown {
-			model.Status = Active
-			modelChanged = true
-		}
-		if model.Status == Active && !model.AutoRoutable {
-			model.AutoRoutable = true
-			modelChanged = true
+		if IsAutoApprovedProvider(model.Provider) {
+			if model.Status == Unknown {
+				model.Status = Active
+				modelChanged = true
+			}
+			if !model.Admitted {
+				model.Admitted = true
+				modelChanged = true
+			}
+			if model.Status == Active && !model.AutoRoutable {
+				model.AutoRoutable = true
+				modelChanged = true
+			}
+		} else {
+			admitted := m.Admitted[key] || model.Admitted
+			if admitted && model.Status == Unknown {
+				model.Status = Active
+				modelChanged = true
+			}
+			if model.Admitted != admitted {
+				model.Admitted = admitted
+				modelChanged = true
+			}
+			if model.AutoRoutable {
+				model.AutoRoutable = false
+				modelChanged = true
+			}
 		}
 		if modelChanged {
 			model.UpdatedAt = time.Now().UTC()
@@ -183,28 +219,32 @@ func (m *Manager) ApplyDefaultApprovalPolicy() int {
 	return changed
 }
 
-func (m *Manager) SetAllow(providerID, modelID string, allowed bool) bool {
+func (m *Manager) SetAdmitted(providerID, modelID string, admitted bool) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.Allow == nil {
-		m.Allow = map[string]bool{}
+	if m.Admitted == nil {
+		m.Admitted = map[string]bool{}
 	}
 	key := providerID + "/" + modelID
-	m.Allow[key] = allowed
+	m.Admitted[key] = admitted
+	if !admitted && m.Allow != nil {
+		m.Allow[key] = false
+	}
 	changed := false
 	for i := range m.Current.Models {
-		if m.Current.Models[i].Provider != providerID || m.Current.Models[i].ID != modelID {
+		model := &m.Current.Models[i]
+		if model.Provider != providerID || model.ID != modelID || IsAutoApprovedProvider(providerID) {
 			continue
 		}
-		if allowed && m.Current.Models[i].Status == Unknown && !IsMeta(modelID) {
-			m.Current.Models[i].Status = Active
-			m.Current.Models[i].UpdatedAt = time.Now().UTC()
+		model.Admitted = admitted
+		model.AutoRoutable = false
+		if admitted && model.Status == Unknown && !IsMeta(modelID) {
+			model.Status = Active
 		}
-		if !allowed && m.Current.Models[i].Status == Active && !IsAutoApprovedProvider(providerID) {
-			m.Current.Models[i].Status = Unknown
-			m.Current.Models[i].UpdatedAt = time.Now().UTC()
+		if !admitted && model.Status == Active {
+			model.Status = Unknown
 		}
-		m.Current.Models[i].AutoRoutable = allowed && m.Current.Models[i].Status == Active
+		model.UpdatedAt = time.Now().UTC()
 		changed = true
 	}
 	if changed {
@@ -212,6 +252,47 @@ func (m *Manager) SetAllow(providerID, modelID string, allowed bool) bool {
 		m.persistLocked()
 	}
 	return changed
+}
+
+func AutoApprovalReady(model Model) bool {
+	if IsAutoApprovedProvider(model.Provider) {
+		return true
+	}
+	if !model.Admitted || model.Status != Active || IsMeta(model.ID) {
+		return false
+	}
+	for _, capability := range []string{"structured_output", "tools", "vision"} {
+		evidence, ok := model.CapabilityEvidence[capability]
+		if !ok || evidence.Source != "runtime_probe" || evidence.Level != "protocol" {
+			return false
+		}
+	}
+	return true
+}
+
+func (m *Manager) SetAllow(providerID, modelID string, allowed bool) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.Allow == nil {
+		m.Allow = map[string]bool{}
+	}
+	for i := range m.Current.Models {
+		model := &m.Current.Models[i]
+		if model.Provider != providerID || model.ID != modelID {
+			continue
+		}
+		if allowed && !AutoApprovalReady(*model) {
+			return false
+		}
+		key := providerID + "/" + modelID
+		m.Allow[key] = allowed
+		model.AutoRoutable = allowed && model.Status == Active
+		model.UpdatedAt = time.Now().UTC()
+		m.Current.Version = Version()
+		m.persistLocked()
+		return true
+	}
+	return false
 }
 
 func (m *Manager) ReconcileProviders(configs map[string]provider.Config) {
@@ -243,6 +324,16 @@ func (m *Manager) ReconcileProviders(configs map[string]provider.Config) {
 		m.Current.Version = Version()
 		m.persistLocked()
 	}
+}
+
+func (m *Manager) AdmissionSnapshot() map[string]bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	out := make(map[string]bool, len(m.Admitted))
+	for key, admitted := range m.Admitted {
+		out[key] = admitted
+	}
+	return out
 }
 
 func (m *Manager) AllowSnapshot() map[string]bool {

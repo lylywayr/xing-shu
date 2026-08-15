@@ -62,6 +62,7 @@ func main() {
 			log.Printf("xing-shu catalog persistence failed: %v", err)
 		}
 	})
+	manager.ApplyDefaultApprovalPolicy()
 	sharedRuntime := api.NewRuntimeAt(dir)
 	envConfigs := provider.LoadEnvironmentConfigs()
 	freeManager, _ := integration.New(filepath.Join(dir, "integrations-xing-shu.json"), os.Getenv("FREELLMAPI_URL"), os.Getenv("FREELLMAPI_KEY"))
@@ -103,6 +104,7 @@ func main() {
 	}
 	probeBatch := api.NewProbeBatchRuntime(probe, dir)
 	governanceRules := api.NewGovernanceRulesRuntime(manager, dir)
+	modelAdmissions := api.NewModelAdmissionRuntime(manager, dir)
 	reviewerConnection := &api.ReviewerConnectionRuntime{Configs: configs, ConfigSource: registry.Snapshot, Manager: manager}
 	routingService := &routing.Service{Providers: routing.ProviderConfigs(configs), ConfigSource: func() map[string]routing.ProviderConfig { return routing.ProviderConfigs(registry.Snapshot()) }, ProviderGate: map[string]func() bool{}, Models: manager.Snapshot().Models, Manager: manager, Disabled: ops, Client: provider.NewChatClient(), Knowledge: sharedRuntime.Knowledge}
 	if freeManager != nil {
@@ -118,7 +120,6 @@ func main() {
 		routingService.QuotaProvider = quotaManager.Get
 	}
 	integrationRuntime := &api.IntegrationRuntime{FreeLLMAPI: freeManager, Catalog: manager, Quota: quotaManager, Audit: observability.New(dir)}
-	manager.ApplyDefaultApprovalPolicy()
 	integrationRuntime.ApplyStateToCatalog()
 	if freeManager != nil {
 		integrationRuntime.Background(syncCtx, 5*time.Minute)
@@ -130,7 +131,7 @@ func main() {
 	}
 	providerRegistry := &api.ProviderRegistryRuntime{Registry: registry, Manager: manager}
 	registry.SetOnChanged(func() { manager.ReconcileProviders(registry.Snapshot()) })
-	s := &api.Server{Auth: adminAuthorizer(), Catalog: state.Catalog, Manager: manager, ProviderRuntime: providerRuntime, ProviderRegistry: providerRegistry, IntegrationRuntime: integrationRuntime, Ops: ops, ProbeRuntime: probe, ProbeBatchRuntime: probeBatch, GovernanceRules: governanceRules, ReviewerConnection: reviewerConnection, GovernanceRuntime: &api.GovernanceRuntime{Snapshots: snap, Catalog: manager}, QuotaManager: quotaManager, QuotaRuntime: quotaRuntime, RuntimeLearning: sharedRuntime.Learning, Runtime: sharedRuntime, RoutingService: routingService, DataDir: dir, Governance: gov}
+	s := &api.Server{Auth: adminAuthorizer(), Catalog: state.Catalog, Manager: manager, ProviderRuntime: providerRuntime, ProviderRegistry: providerRegistry, IntegrationRuntime: integrationRuntime, Ops: ops, ProbeRuntime: probe, ProbeBatchRuntime: probeBatch, GovernanceRules: governanceRules, ModelAdmissions: modelAdmissions, ReviewerConnection: reviewerConnection, GovernanceRuntime: &api.GovernanceRuntime{Snapshots: snap, Catalog: manager}, QuotaManager: quotaManager, QuotaRuntime: quotaRuntime, RuntimeLearning: sharedRuntime.Learning, Runtime: sharedRuntime, RoutingService: routingService, DataDir: dir, Governance: gov}
 	mux := http.NewServeMux()
 	mux.Handle("/", staticHandler(http.FileServer(http.Dir("/app/web"))))
 	mux.Handle("/admin/ui", http.RedirectHandler("/", http.StatusFound))

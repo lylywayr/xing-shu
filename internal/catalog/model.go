@@ -30,6 +30,7 @@ type Model struct {
 	Created               int64               `json:"created"`
 	Status                Status              `json:"status"`
 	AutoRoutable          bool                `json:"auto_routable"`
+	Admitted              bool                `json:"admitted"`
 	Capabilities          []string            `json:"capabilities"`
 	ContextWindow         int                 `json:"context_window"`
 	Tools                 bool                `json:"tools"`

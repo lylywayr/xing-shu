@@ -53,15 +53,19 @@ func (r *GovernanceRulesRuntime) validate(changes []GovernanceRuleChange) error 
 			return fmt.Errorf("invalid or duplicate model key: %s", change.Key)
 		}
 		seen[change.Key] = true
-		found := false
+		var found *catalog.Model
 		for _, model := range r.Manager.Snapshot().Models {
 			if model.Provider == parts[0] && model.ID == parts[1] {
-				found = true
+				copy := model
+				found = &copy
 				break
 			}
 		}
-		if !found {
+		if found == nil {
 			return fmt.Errorf("model not found: %s", change.Key)
+		}
+		if change.Allow && !catalog.AutoApprovalReady(*found) {
+			return fmt.Errorf("model capability verification incomplete: %s", change.Key)
 		}
 	}
 	return nil
@@ -197,11 +201,20 @@ func (r *GovernanceRulesRuntime) load() {
 		}
 		r.audits = state.Audits
 	}
-	changes := make([]GovernanceRuleChange, 0, len(r.rules))
-	for key, allow := range r.rules {
-		changes = append(changes, GovernanceRuleChange{Key: key, Allow: allow})
+	loaded := r.rules
+	r.rules = r.Manager.AllowSnapshot()
+	for key, allow := range loaded {
+		parts := strings.SplitN(key, "/", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		if allow && !r.Manager.SetAllow(parts[0], parts[1], true) {
+			r.rules[key] = false
+			continue
+		}
+		r.Manager.SetAllow(parts[0], parts[1], allow)
+		r.rules[key] = allow
 	}
-	r.applyManager(changes)
 }
 func (r *GovernanceRulesRuntime) save() {
 	if r.dir == "" {

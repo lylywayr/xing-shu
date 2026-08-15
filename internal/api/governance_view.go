@@ -16,7 +16,13 @@ func reconcileGovernance(c catalog.Catalog, records []governance.Record) []gover
 		if _, exists := byKey[key]; exists {
 			continue
 		}
-		byKey[key] = governance.Record{Key: key, Model: model, Status: catalog.Unknown, Reason: "catalog model has no governance record", CheckedAt: time.Now(), LastSeen: time.Now()}
+		status := catalog.Unknown
+		reason := "catalog model has no governance record"
+		if model.Admitted && model.Status == catalog.Active {
+			status = catalog.Active
+			reason = "admitted; capability verification and Auto approval pending"
+		}
+		byKey[key] = governance.Record{Key: key, Model: model, Status: status, Reason: reason, CheckedAt: time.Now(), LastSeen: time.Now()}
 	}
 	out := make([]governance.Record, 0, len(byKey))
 	for _, record := range byKey {

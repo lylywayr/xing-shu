@@ -26,6 +26,7 @@ type Server struct {
 	ProbeBatchRuntime  *ProbeBatchRuntime
 	RoutingService     *routing.Service
 	GovernanceRules    *GovernanceRulesRuntime
+	ModelAdmissions    *ModelAdmissionRuntime
 	ReviewerConnection *ReviewerConnectionRuntime
 	Governance         []governance.Record
 	Quota              []quota.Snapshot
@@ -173,6 +174,12 @@ func (s *Server) Routes() http.Handler {
 	}
 	m.Handle("/api/admin/alerts", s.guard(auth.Read, AlertsView(alertsPath)))
 	m.Handle("/api/admin/alerts/action", s.guard(auth.Operate, AlertAction(alertsPath)))
+	if s.ModelAdmissions != nil {
+		m.Handle("/api/admin/model-admissions/preview", s.guard(auth.Operate, s.ModelAdmissions.Preview))
+		m.Handle("/api/admin/model-admissions/apply", s.guard(auth.Operate, s.ModelAdmissions.Apply))
+		m.Handle("/api/admin/model-admissions/undo", s.guard(auth.Operate, s.ModelAdmissions.Undo))
+		m.Handle("/api/admin/model-admissions/audit", s.guard(auth.Read, s.ModelAdmissions.Audit))
+	}
 	if s.ProviderRegistry != nil {
 		m.Handle("/api/admin/provider-registry", s.guard(auth.Read, s.ProviderRegistry.List))
 		m.Handle("/api/admin/provider-registry/validate", s.guard(auth.Probe, s.ProviderRegistry.Validate))

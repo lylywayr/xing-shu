@@ -41,7 +41,7 @@ func ReviewerCandidatesView(manager *catalog.Manager, ops *OpsState, _ *Runtime)
 				continue
 			}
 			if !model.AutoRoutable {
-				reasons["not_auto_routable"]++
+				reasons["second_approval_pending"]++
 				continue
 			}
 			if model.StructuredOutputKnown && model.StructuredOutput {
