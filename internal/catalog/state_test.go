@@ -26,6 +26,17 @@ func TestStateRoundTripAndManagerPersistence(t *testing.T) {
 	}
 }
 
+func TestSetAllowActivatesUnknownModel(t *testing.T) {
+	manager := NewManager(Catalog{Models: []Model{{ID: "m", Provider: "p", Status: Unknown}}}, nil)
+	if !manager.SetAllow("p", "m", true) {
+		t.Fatal("expected model approval to change the catalog")
+	}
+	model := manager.Snapshot().Models[0]
+	if model.Status != Active || !model.AutoRoutable {
+		t.Fatalf("approved model did not become routable: %+v", model)
+	}
+}
+
 func TestLoadStateMissingFileIsEmpty(t *testing.T) {
 	state, err := LoadState(filepath.Join(t.TempDir(), "missing.json"))
 	if err != nil || len(state.Catalog.Models) != 0 || state.Allow == nil {

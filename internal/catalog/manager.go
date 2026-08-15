@@ -161,10 +161,15 @@ func (m *Manager) SetAllow(providerID, modelID string, allowed bool) bool {
 	m.Allow[key] = allowed
 	changed := false
 	for i := range m.Current.Models {
-		if m.Current.Models[i].Provider == providerID && m.Current.Models[i].ID == modelID {
-			m.Current.Models[i].AutoRoutable = allowed && m.Current.Models[i].Status == Active
-			changed = true
+		if m.Current.Models[i].Provider != providerID || m.Current.Models[i].ID != modelID {
+			continue
 		}
+		if allowed && m.Current.Models[i].Status == Unknown && !IsMeta(modelID) {
+			m.Current.Models[i].Status = Active
+			m.Current.Models[i].UpdatedAt = time.Now().UTC()
+		}
+		m.Current.Models[i].AutoRoutable = allowed && m.Current.Models[i].Status == Active
+		changed = true
 	}
 	if changed {
 		m.Current.Version = Version()

@@ -7,6 +7,12 @@ import (
 	"xing-shu/internal/provider"
 )
 
+const FreeLLMAPIProviderID = "freellmapi"
+
+// IsAutoApprovedProvider identifies providers whose complete catalog is trusted
+// to enter the routable pool without per-model user approval.
+func IsAutoApprovedProvider(providerID string) bool { return providerID == FreeLLMAPIProviderID }
+
 type SyncService struct{ Allow map[string]bool }
 
 func (s SyncService) Apply(providerID string, raw []provider.RawModel) []Model {
@@ -20,7 +26,8 @@ func (s SyncService) Apply(providerID string, raw []provider.RawModel) []Model {
 			x.Context = 0
 		}
 		m := Model{ID: id, Provider: providerID, Object: "model", OwnedBy: providerID, Created: time.Now().Unix(), ContextWindow: x.Context, Tools: x.Tools, Vision: x.Vision, StructuredOutput: x.StructuredOutput || x.JSONMode, StructuredOutputKnown: x.StructuredOutputKnown || x.StructuredOutput || x.JSONMode, Status: Unknown, UpdatedAt: time.Now()}
-		m.AutoRoutable = s.Allow[providerID+"/"+x.ID] && !IsMeta(m.ID)
+		approved := s.Allow[providerID+"/"+x.ID]
+		m.AutoRoutable = !IsMeta(m.ID) && (approved || IsAutoApprovedProvider(providerID))
 		if m.AutoRoutable {
 			m.Status = Active
 		}

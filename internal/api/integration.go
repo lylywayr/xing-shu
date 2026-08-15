@@ -277,7 +277,8 @@ func (i *IntegrationRuntime) ApplyStateToCatalog() {
 		if model.Provider != integration.FreeLLMAPIID {
 			continue
 		}
-		allowed := enabled && allow[model.Provider+"/"+model.ID] && model.Status == catalog.Active
+		approved := allow[model.Provider+"/"+model.ID] || catalog.IsAutoApprovedProvider(model.Provider)
+		allowed := enabled && approved && model.Status == catalog.Active
 		i.Catalog.UpdateProviderModel(model.ID, model.Provider, func(x *catalog.Model) { x.AutoRoutable = allowed })
 	}
 }

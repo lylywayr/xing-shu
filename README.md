@@ -86,10 +86,15 @@ Dockerfile 使用标准 Node/Go 多阶段构建；iSH ARM64 上的本地 Vitest/
 
 资源池支持从手机或桌面直接接入 OpenAI-compatible Provider：
 
-1. 填写 Provider ID、名称、Base URL 和 API Key；
+1. 填写名称、Base URL 和 API Key；内部 Provider ID 由星枢自动生成；
 2. 星枢规范化 Base URL，并真实验证网络、鉴权、`/models` 与 `/chat/completions`；
 3. 四步全部通过后，API Key 使用 `XING_SHU_CREDENTIAL_KEY` 做 AES-GCM 加密并写入 `providers-xing-shu.json`；
 4. 保存后立即同步模型；可继续编辑、重新验证、停用、启用或删除。
+
+模型接入采用明确的双轨策略：
+
+- **FreeLLMAPI**：发现的模型全部自动进入可路由模型池；FreeLLMAPI 的独立生产路由开关仍然是最终调用闸门；
+- **其他 Provider**：只发现和验证模型，模型默认保持 `unknown`、不可路由；必须由用户在“能力治理”中逐个明确批准后，才变为 `active` 并进入 Auto；再次同步和重启不会绕过该选择。
 
 环境变量 Provider 在控制台中标记为只读。停用或删除动态 Provider 后，历史模型保留为 `stale/orphaned` 且立即退出 Auto。FreeLLMAPI 仍是独立模块，不纳入通用注册中心。
 
