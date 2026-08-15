@@ -27,4 +27,5 @@
 
 ## 当前状态
 
-- `planned`：已加入客户端 API 展示和独立密钥管理需求；等待开始实现。
+- `deployed`：第三阶段已完成代码实现、标准构建、候选验收、GitHub 合并和 NAS 生产部署。
+- 生产镜像 `xing-shu:v0.8.0` healthy，287 models，ready=true；回滚备份已保留。
