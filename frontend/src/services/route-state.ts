@@ -1,6 +1,6 @@
 import type { PageKey } from '../types'
 
-const pages = new Set<PageKey>(['overview', 'resources', 'integrations', 'catalog', 'routing', 'governance', 'reviews', 'knowledge', 'shadow', 'logs', 'accounts', 'snapshots', 'operations', 'system'])
+const pages = new Set<PageKey>(['overview', 'resources', 'integrations', 'catalog', 'api-access', 'routing', 'governance', 'reviews', 'knowledge', 'shadow', 'logs', 'accounts', 'snapshots', 'operations', 'system'])
 
 export interface RouteState {
   page: PageKey

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"xing-shu/internal/auth"
 	"xing-shu/internal/catalog"
+	"xing-shu/internal/clientkey"
 	"xing-shu/internal/governance"
 	"xing-shu/internal/provider"
 	"xing-shu/internal/quota"
@@ -34,6 +35,9 @@ type Server struct {
 	QuotaRuntime       *QuotaRuntime
 	RuntimeLearning    any
 	Runtime            *Runtime
+	ClientKeys         *ClientKeys
+	ClientKeyStore     *clientkey.Store
+	PublicBaseURL      string
 	DataDir            string
 }
 
@@ -89,6 +93,16 @@ func (s *Server) Routes() http.Handler {
 		s.json(w, map[string]bool{"ok": true})
 	})
 	m.Handle("/api/admin/models", s.guard(auth.Read, func(w http.ResponseWriter, r *http.Request) { s.json(w, s.current()) }))
+	if s.ClientKeys != nil && s.ClientKeyStore != nil {
+		m.Handle("/api/admin/client-api/info", s.guard(auth.Read, ClientAPIInfo(s.PublicBaseURL, s.ClientKeyStore)))
+		m.Handle("/api/admin/client-keys", s.guard(auth.Read, s.ClientKeys.List))
+		m.Handle("/api/admin/client-keys/create", s.guard(auth.Operate, s.ClientKeys.Create))
+		m.Handle("/api/admin/client-keys/enable", s.guard(auth.Operate, s.ClientKeys.Enable))
+		m.Handle("/api/admin/client-keys/disable", s.guard(auth.Operate, s.ClientKeys.Disable))
+		m.Handle("/api/admin/client-keys/revoke", s.guard(auth.Operate, s.ClientKeys.Revoke))
+		m.Handle("/api/admin/client-keys/rotate", s.guard(auth.Operate, s.ClientKeys.Rotate))
+		m.Handle("/api/admin/client-keys/mode", s.guard(auth.Operate, s.ClientKeys.Mode))
+	}
 	m.Handle("/api/admin/governance", s.guard(auth.Read, func(w http.ResponseWriter, r *http.Request) {
 		s.json(w, map[string]any{"items": reconcileGovernance(s.current(), s.Governance)})
 	}))

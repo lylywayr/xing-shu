@@ -1,0 +1,6 @@
+export interface ClientApiInfo { base_url:string; models_endpoint:string; chat_endpoint:string; authentication:string; mode:'optional'|'required'; scopes:string[] }
+export interface ClientKey { id:string; name:string; prefix:string; scopes:string[]; enabled:boolean; created_at:string; expires_at?:string; last_used_at?:string; revoked_at?:string }
+export interface ClientKeyList { items:ClientKey[]; mode:'optional'|'required' }
+export function curlExample(info:ClientApiInfo, secret = '$XING_SHU_API_KEY'):string { return `curl ${info.chat_endpoint} \\\n  -H "Authorization: Bearer ${secret}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"model":"auto","messages":[{"role":"user","content":"你好"}]}'` }
+export function pythonExample(info:ClientApiInfo):string { return `from openai import OpenAI\n\nclient = OpenAI(base_url="${info.base_url}", api_key="YOUR_XING_SHU_API_KEY")\nresponse = client.chat.completions.create(\n    model="auto",\n    messages=[{"role": "user", "content": "你好"}],\n)\nprint(response.choices[0].message.content)` }
+export function javascriptExample(info:ClientApiInfo):string { return `import OpenAI from "openai";\n\nconst client = new OpenAI({ baseURL: "${info.base_url}", apiKey: process.env.XING_SHU_API_KEY });\nconst response = await client.chat.completions.create({ model: "auto", messages: [{ role: "user", content: "你好" }] });` }

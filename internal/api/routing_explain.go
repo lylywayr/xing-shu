@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 	"xing-shu/internal/capability"
 	"xing-shu/internal/catalog"
 	"xing-shu/internal/routing"
@@ -34,45 +35,47 @@ func RoutingExplain(service *routing.Service) http.HandlerFunc {
 			return
 		}
 		need := routing.Needs(raw)
-		selected := service.SelectAuto(raw)
+		ranked := service.RankedCandidates(raw)
+		eligible := map[string]routing.RankedCandidate{}
+		for _, candidate := range ranked {
+			eligible[candidate.Provider+"/"+candidate.Model] = candidate
+		}
 		items := make([]explainCandidate, 0)
+		rows := make([]map[string]any, 0)
 		excluded := 0
 		for _, model := range serviceModels(service) {
-			if model.Status != "active" {
-				excluded++
+			if model.Status != catalog.Active || !model.AutoRoutable || !service.HasProvider(model.Provider) {
+				continue
+			}
+			key := model.Provider + "/" + model.ID
+			if candidate, ok := eligible[key]; ok {
+				item := explainCandidate{Provider: model.Provider, Model: model.ID, Eligible: true, Reasons: candidate.Reasons, ScoreBreakdown: candidate.ScoreBreakdown, TotalScore: candidate.Score}
+				items = append(items, item)
+				rows = append(rows, map[string]any{"provider": model.Provider, "model": model.ID, "status": model.Status, "auto_routable": true, "rule_score": candidate.Score, "knowledge_applied": candidate.ScoreBreakdown["knowledge_bonus"] > 0, "reasons": candidate.Reasons, "score_breakdown": candidate.ScoreBreakdown})
 				continue
 			}
 			reasons := []string{}
-			base := model.Score
-			providerAdjustment := 0
-			knowledgeBonus := service.KnowledgeBonus(raw, model)
-			if !model.AutoRoutable {
-				reasons = append(reasons, "not_auto_routable")
-			}
-			if !service.HasProvider(model.Provider) {
-				reasons = append(reasons, "provider_unavailable")
-			}
-			if service.QuotaExhausted(model.Provider) {
-				reasons = append(reasons, "quota_exhausted")
-			}
 			if need != "general" && !supportsNeed(model, need) {
 				reasons = append(reasons, "capability_mismatch")
 			}
-			eligible := len(reasons) == 0
-			if !eligible {
-				excluded++
+			if !service.RouteAvailable(model.Provider, model.ID, time.Now()) {
+				reasons = append(reasons, "cooldown_or_recovery_probe")
 			}
-			items = append(items, explainCandidate{Provider: model.Provider, Model: model.ID, Eligible: eligible, Reasons: reasons, ScoreBreakdown: map[string]int{"base_score": base, "provider_adjustment": providerAdjustment, "knowledge_bonus": knowledgeBonus}, TotalScore: base + providerAdjustment + knowledgeBonus})
+			if len(reasons) == 0 {
+				continue
+			}
+			excluded++
+			breakdown := map[string]int{"base_score": model.Score, "knowledge_bonus": service.KnowledgeBonus(raw, model), "learning_bonus": 0, "health_adjustment": 0}
+			item := explainCandidate{Provider: model.Provider, Model: model.ID, Eligible: false, Reasons: reasons, ScoreBreakdown: breakdown, TotalScore: model.Score + breakdown["knowledge_bonus"]}
+			items = append(items, item)
+			rows = append(rows, map[string]any{"provider": model.Provider, "model": model.ID, "status": model.Status, "auto_routable": false, "rule_score": item.TotalScore, "knowledge_applied": breakdown["knowledge_bonus"] > 0, "reasons": reasons, "score_breakdown": breakdown})
 		}
-		rows := make([]map[string]any, 0, len(items))
-		for _, item := range items {
-			rows = append(rows, map[string]any{"provider": item.Provider, "model": item.Model, "status": "active", "auto_routable": item.Eligible, "rule_score": item.TotalScore, "knowledge_applied": item.ScoreBreakdown["knowledge_bonus"] > 0, "reasons": item.Reasons, "score_breakdown": item.ScoreBreakdown})
+		selected := ""
+		if len(ranked) > 0 {
+			selected = ranked[0].Model
 		}
-		writeJSON(w, map[string]any{"request": body, "need": need, "selected": selected, "excluded": excluded, "candidates": items, "items": rows})
+		writeJSON(w, map[string]any{"request": body, "need": need, "selected": selected, "excluded": excluded, "candidates": items, "items": rows, "health": service.HealthSnapshot()})
 	}
 }
-
 func serviceModels(service *routing.Service) []catalog.Model { return service.SnapshotModels() }
-func supportsNeed(model catalog.Model, need string) bool {
-	return capability.Supports(model, need)
-}
+func supportsNeed(model catalog.Model, need string) bool     { return capability.Supports(model, need) }

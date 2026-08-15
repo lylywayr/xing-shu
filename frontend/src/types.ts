@@ -1,4 +1,4 @@
-export type PageKey = 'overview' | 'resources' | 'integrations' | 'catalog' | 'routing' | 'governance' | 'reviews' | 'knowledge' | 'shadow' | 'logs' | 'accounts' | 'snapshots' | 'operations' | 'system'
+export type PageKey = 'overview' | 'resources' | 'integrations' | 'catalog' | 'api-access' | 'routing' | 'governance' | 'reviews' | 'knowledge' | 'shadow' | 'logs' | 'accounts' | 'snapshots' | 'operations' | 'system'
 export type Status = 'active' | 'unknown' | 'meta' | 'stale' | 'retired' | 'disabled'
 export interface Model { id: string; provider: string; status: Status; auto_routable: boolean; admitted?: boolean; structured_output: boolean; structured_output_known: boolean; capabilities: string[]; context_window: number; tools: boolean; vision: boolean; capability_evidence?: Record<string, Evidence> }
 export interface Evidence { supported: boolean; confidence: number; source: string; level: string; checked_at: string }

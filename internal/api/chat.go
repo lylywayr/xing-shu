@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
 	"time"
+	"xing-shu/internal/clientkey"
 	"xing-shu/internal/observability"
 	"xing-shu/internal/quota"
 	"xing-shu/internal/routing"
@@ -60,38 +62,89 @@ func (c *Chat) reviewRecord(flags chatFlags, status int, start time.Time, body, 
 		return "encryption key unavailable"
 	}()})
 }
-func (c *Chat) forward(w http.ResponseWriter, resp *http.Response, flags chatFlags, start time.Time, cacheKey string, requestBody []byte) {
+
+type flushWriter struct {
+	w http.ResponseWriter
+	f http.Flusher
+}
+
+func (f flushWriter) Write(p []byte) (int, error) {
+	n, err := f.w.Write(p)
+	f.f.Flush()
+	return n, err
+}
+
+func (c *Chat) forward(w http.ResponseWriter, resp *http.Response, flags chatFlags, start time.Time, cacheKey string, requestBody []byte) bool {
 	defer resp.Body.Close()
 	for k, v := range resp.Header {
 		w.Header()[k] = v
 	}
 	ok := resp.StatusCode >= 200 && resp.StatusCode < 300
-	if cacheKey != "" && ok && !flags.Stream {
-		b, e := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
-		if e == nil {
-			w.WriteHeader(resp.StatusCode)
-			_, _ = w.Write(b)
-			if c.Runtime != nil {
-				c.Runtime.Cache.Put(cacheKey, b)
-			}
-		} else {
+	var captured []byte
+	if !flags.Stream {
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+		if err != nil {
 			ok = false
-			http.Error(w, "upstream read error", 502)
+			http.Error(w, "upstream read error", http.StatusBadGateway)
+		} else {
+			captured = body
+			w.WriteHeader(resp.StatusCode)
+			_, _ = w.Write(body)
+			if cacheKey != "" && ok && c.Runtime != nil {
+				c.Runtime.Cache.Put(cacheKey, body)
+			}
 		}
 	} else {
 		w.WriteHeader(resp.StatusCode)
-		_, _ = io.Copy(w, resp.Body)
-	}
-	var captured []byte
-	if !flags.Stream {
-		captured, _ = io.ReadAll(io.LimitReader(resp.Body, 32<<20))
-		resp.Body = io.NopCloser(bytes.NewReader(captured))
+		var target io.Writer = w
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+			target = flushWriter{w: w, f: flusher}
+		}
+		_, err := io.Copy(target, resp.Body)
+		if err != nil {
+			ok = false
+		}
 	}
 	c.reviewRecord(flags, resp.StatusCode, start, requestBody, captured)
-	c.learn(flags.Model, ok, start)
 	if c.Audit != nil {
-		c.Audit.Record(observability.Event{Time: time.Now(), Model: flags.Model, Status: resp.StatusCode, LatencyMS: time.Since(start).Milliseconds(), Stream: flags.Stream, Tools: len(flags.Tools) > 0})
+		errorText := ""
+		if !ok {
+			errorText = "upstream_response_interrupted"
+		}
+		c.Audit.Record(observability.Event{Time: time.Now(), Action: "route.response", Model: flags.Model, Status: resp.StatusCode, LatencyMS: time.Since(start).Milliseconds(), Stream: flags.Stream, Tools: len(flags.Tools) > 0, Error: errorText})
 	}
+	return ok
+}
+func (c *Chat) recordRoute(start time.Time, flags chatFlags, result *routing.ReliableResult, clientKey string, finalError error) {
+	if c.Audit == nil {
+		return
+	}
+	if result == nil {
+		errorText := "route unavailable"
+		if finalError != nil {
+			errorText = finalError.Error()
+		}
+		c.Audit.Record(observability.Event{Time: time.Now().UTC(), Action: "route.complete", Model: flags.Model, Status: http.StatusServiceUnavailable, LatencyMS: time.Since(start).Milliseconds(), Stream: flags.Stream, Tools: len(flags.Tools) > 0, Error: errorText, ClientKey: clientKey})
+		return
+	}
+	status := 0
+	if result.Response != nil {
+		status = result.Response.StatusCode
+	}
+	errorText := ""
+	if finalError != nil {
+		errorText = finalError.Error()
+	}
+	switches := 0
+	if len(result.Attempts) > 1 {
+		switches = len(result.Attempts) - 1
+	}
+	ttfb := int64(0)
+	if len(result.Attempts) > 0 {
+		ttfb = result.Attempts[len(result.Attempts)-1].TTFBMS
+	}
+	c.Audit.Record(observability.Event{Time: time.Now().UTC(), Action: "route.complete", Model: result.Model, Provider: result.Provider, Status: status, LatencyMS: time.Since(start).Milliseconds(), TTFBMS: ttfb, Switches: switches, Stream: flags.Stream, Tools: len(flags.Tools) > 0, Error: errorText, ClientKey: clientKey, Attempts: result.Attempts})
 }
 func (c *Chat) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
@@ -105,6 +158,10 @@ func (c *Chat) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	flags := parseFlags(body)
+	clientKeyPrefix := "migration-optional"
+	if key, ok := clientkey.FromContext(r.Context()); ok {
+		clientKeyPrefix = key.Prefix
+	}
 	sid := sessionID(r)
 	if sid != "" && c.Runtime != nil && c.Runtime.Sessions != nil {
 		if x, ok := c.Runtime.Sessions.Get(sid); ok && (flags.Model == "auto" || flags.Model == "") && x.Model != "" {
@@ -132,49 +189,35 @@ func (c *Chat) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if flags.Model == "" || flags.Model == "auto" {
-		if selected := c.Router.SelectAuto(body); selected != "" {
-			flags.Model = selected
-			if sid != "" && c.Runtime != nil {
-				c.Runtime.Sessions.Put(sid, runtime.Session{Model: selected})
-			}
-			resp, e := c.Router.Complete(ctx, body, "")
-			if e == nil {
-				c.forward(w, resp, flags, start, "", body)
-				return
-			}
-		}
-		if c.Fallback != nil {
-			r.Body = io.NopCloser(bytes.NewReader(body))
-			c.Fallback.ServeHTTP(w, r)
-			c.learn(flags.Model, false, start)
-			return
-		}
-		http.Error(w, "auto router unavailable", 503)
-		c.learn(flags.Model, false, start)
-		return
-	}
-	if !c.Router.HasModel(flags.Model) {
+	if flags.Model != "" && flags.Model != "auto" && !c.Router.HasModel(flags.Model) {
 		http.Error(w, "requested model unavailable", 503)
 		c.learn(flags.Model, false, start)
 		return
 	}
-	if sid != "" && c.Runtime != nil {
-		c.Runtime.Sessions.Put(sid, runtime.Session{Model: strings.TrimPrefix(flags.Model, "openai/")})
-	}
-	resp, e := c.Router.Complete(ctx, body, "")
-	if e != nil {
+	result, routeErr := c.Router.CompleteReliable(ctx, body, routing.ReliableOptions{MaxAttempts: 3, PerAttemptTimeout: 45 * time.Second})
+	if routeErr != nil || result == nil || result.Response == nil {
+		c.recordRoute(start, flags, result, clientKeyPrefix, routeErr)
 		if c.Fallback != nil {
 			r.Body = io.NopCloser(bytes.NewReader(body))
 			c.Fallback.ServeHTTP(w, r)
 			c.learn(flags.Model, false, start)
 			return
 		}
-		http.Error(w, e.Error(), 503)
+		http.Error(w, "all approved routes unavailable", http.StatusServiceUnavailable)
 		c.learn(flags.Model, false, start)
 		return
 	}
-	c.forward(w, resp, flags, start, ck, body)
+	flags.Model = result.Model
+	if sid != "" && c.Runtime != nil {
+		c.Runtime.Sessions.Put(sid, runtime.Session{Model: result.Model})
+	}
+	ok := c.forward(w, result.Response, flags, start, ck, body)
+	if !ok {
+		c.Router.MarkResponseInterrupted(result.Provider, result.Model)
+		c.recordRoute(start, flags, result, clientKeyPrefix, errors.New("upstream response interrupted after output began"))
+		return
+	}
+	c.recordRoute(start, flags, result, clientKeyPrefix, nil)
 }
 func ChatModel(body []byte) string { return parseFlags(body).Model }
 func IsStreaming(body []byte) bool {

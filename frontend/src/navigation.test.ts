@@ -5,7 +5,7 @@ describe('navigation model', () => {
   it('groups every workspace page exactly once', () => {
     const keys = allNavItems.map(item => item.key)
     expect(new Set(keys).size).toBe(keys.length)
-    expect(keys).toHaveLength(14)
+    expect(keys).toHaveLength(15)
   })
 
   it('keeps the most important mobile workspaces easy to scan', () => {

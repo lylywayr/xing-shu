@@ -14,7 +14,8 @@
 - `internal/catalog`：模型目录、同步、生命周期。
 - `internal/provider`：通用 Provider 注册中心、AES-GCM 凭证存储、OpenAI-compatible URL 规范、连接验证、HTTP 客户端与错误分类。
 - `internal/integration`：FreeLLMAPI 状态、模型同步和只读本地额度。
-- `internal/routing`：候选排序、会话亲和、失败切换和 Provider gate。
+- `internal/routing`：候选排序、两级批准门禁、会话亲和、失败切换、SSE 首事件保护、Provider/模型冷却恢复和路由学习。
+- `internal/clientkey`：客户端 API Key 哈希存储、作用域、过期、启停、轮换、撤销和 optional/required 迁移模式。
 - `internal/governance`：allow/deny、快照、审计和撤销。
 - `internal/api`：管理 API、协议转发、观测与复盘接口。
 - `frontend`：Vue 控制台源码。应用壳采用移动优先布局：手机/平板为顶栏与分组抽屉，桌面为固定分组侧栏；列表在手机端卡片化。
@@ -38,7 +39,18 @@
 
 构建前测试全部通过后再生成正式镜像。iSH ARM64 的 esbuild/Vitest 原生执行失败不能被当成源码失败，也不能被包装成测试通过；使用标准 Docker 构建器补证据。
 
-## 5. NAS 恢复流程
+## 5. 第三阶段验收记录
+
+第三阶段完成了客户端 API 接入中心、独立客户端密钥、可靠多候选路由、Provider/模型冷却恢复、SSE 首事件保护、尝试链审计和按 Provider/模型学习统计。
+
+- 后端 Go 全量测试通过；iSH 本地使用 `GOMAXPROCS=1 go test -p 1`，避免 ARM64 Go 运行时并行调度器偶发崩溃。
+- NAS 标准 Node 容器：17 个前端测试文件、41 项测试和 TypeScript 类型检查全部通过。
+- NAS 标准 Go 容器：全量测试和最终二进制编译通过。
+- 候选 API：32 个管理接口契约通过；客户端 Key 正确作用域返回 200，错误作用域 403，required 模式匿名 401，列表不包含完整明文。
+- Chromium CDP：390px 手机与 1430px 桌面 API 接入页面均无横向溢出，地址、密钥表单和调用示例均存在。
+- 最终镜像：`xing-shu:v0.8.0`，摘要记录在项目发布交接中；生产切换前必须重新确认摘要和健康状态。
+
+## 6. NAS 恢复流程
 
 以下是通用流程，不写入任何真实主机地址或凭证：
 

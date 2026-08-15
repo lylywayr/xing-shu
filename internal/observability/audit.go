@@ -15,9 +15,13 @@ type Event struct {
 	Provider  string    `json:"provider"`
 	Status    int       `json:"status"`
 	LatencyMS int64     `json:"latency_ms"`
+	TTFBMS    int64     `json:"ttfb_ms,omitempty"`
+	Switches  int       `json:"switches,omitempty"`
 	Stream    bool      `json:"stream"`
 	Tools     bool      `json:"tools"`
 	Error     string    `json:"error,omitempty"`
+	ClientKey string    `json:"client_key,omitempty"`
+	Attempts  any       `json:"attempts,omitempty"`
 }
 type Audit struct {
 	Dir string

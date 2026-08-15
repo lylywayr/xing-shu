@@ -20,6 +20,31 @@
 - 额度事实与告警（未知或未授权状态保持 `unavailable`，不伪造数字）
 - 审计、运行态观测和响应式管理控制台
 
+## 客户端 API 接入
+
+登录控制台后打开“API 接入”页面，可查看 OpenAI-compatible Base URL、模型接口、聊天接口与 SDK 示例，并创建独立客户端 API Key。
+
+- 客户端 Key 与 `ADMIN_API_KEY` 完全隔离；管理员密钥不得分发给调用方。
+- 完整客户端 Key 仅创建或轮换时显示一次，服务端只持久化 SHA-256 哈希和安全前缀。
+- 新安装和升级默认使用 `optional` 兼容迁移模式；无 Key 的存量 `/v1` 调用暂时可继续工作。
+- 客户端迁移完成后，应在前端切换为 `required`；`/v1/models` 需要 `models:read`，`/v1/chat/completions` 需要 `chat:write`。
+- 经反向代理访问时可配置 `XING_SHU_PUBLIC_BASE_URL=https://router.example.com`，确保控制台显示正确公网地址。
+
+```sh
+curl "$XING_SHU_BASE_URL/v1/chat/completions" \
+  -H "Authorization: Bearer $XING_SHU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"auto","messages":[{"role":"user","content":"hello"}]}'
+```
+
+## 可靠路由与故障切换
+
+`model=auto` 仅从已接入、完成能力证据且获 Auto 批准的模型构建候选。排序综合基础分、能力匹配、可信路由知识、历史成功率与延迟、额度和冷却状态；请求最多尝试 3 个不同候选，并避免在同一故障 Provider 上重复请求。
+
+网络错误、超时、429、可重试 5xx、401/403 和协议错误按类型隔离或冷却；冷却结束后必须通过最小恢复探针才能重新进入候选池。SSE 只允许在首个有效事件输出前切换，上游已经向客户端输出后不会拼接其他模型。
+
+尝试链、错误类型、HTTP 状态、TTFB、总延迟、切换次数和客户端 Key 前缀进入只读审计；不会记录完整客户端 Key。
+
 ## 快速启动
 
 ```sh
@@ -42,7 +67,8 @@ curl -fsS http://127.0.0.1:12100/health/ready
 - `FREELLMAPI_URL/KEY`：可选 FreeLLMAPI 集成；需要在控制台显式授权。
 - `XING_SHU_DATA_PATH`：宿主机唯一持久化目录，默认 `./data`。
 - `XING_SHU_CREDENTIAL_KEY`：动态 Provider API Key 的 AES-GCM 主密钥，必须是 Base64 编码的 32 字节随机值；丢失后动态凭证不可恢复。
-所有密钥只通过部署环境注入。星枢不会在公开 API、审计或日志中返回完整密钥。
+- `XING_SHU_PUBLIC_BASE_URL`：可选的公开根地址，仅用于控制台生成客户端调用地址和示例。
+Provider 密钥仍通过部署环境或加密注册表保存；客户端 API Key 由控制台创建，服务端只保存哈希，不保存可回读明文。星枢不会在公开 API、审计或日志中返回完整密钥。
 
 ## 开发与验证
 
