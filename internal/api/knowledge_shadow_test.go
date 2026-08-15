@@ -14,7 +14,7 @@ func TestShadowRunRequiresTrustedKnowledge(t *testing.T) {
 	rt := NewRuntimeAt(t.TempDir())
 	rt.Knowledge.Upsert(runtime.Knowledge{ID: "k1", RecommendedModel: "m1", Status: runtime.KnowledgeProposed})
 	rt.Reviews.Add(runtime.Review{ID: "r1", Replayable: true, TaskPackage: []byte(`{"model":"auto"}`)})
-	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "m1", Provider: "p1", Status: catalog.Active, AutoRoutable: true}}}, nil)
+	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "m1", Provider: "p1", Status: catalog.Active, Admitted: true, AutoRoutable: true}}}, nil)
 	handler := ShadowRun(rt, manager, NewOps())
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/shadow/run", strings.NewReader(`{"knowledge_id":"k1","review_id":"r1","candidate_model":"m1"}`))
 	w := httptest.NewRecorder()

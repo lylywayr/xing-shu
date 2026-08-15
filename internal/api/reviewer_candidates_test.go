@@ -10,8 +10,8 @@ import (
 
 func TestReviewerCandidatesExplainEligibility(t *testing.T) {
 	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{
-		{ID: "json-model", Provider: "p1", Status: catalog.Active, AutoRoutable: true, StructuredOutput: true, StructuredOutputKnown: true},
-		{ID: "unknown-capability", Provider: "p1", Status: catalog.Active, AutoRoutable: true},
+		{ID: "json-model", Provider: "p1", Status: catalog.Active, Admitted: true, AutoRoutable: true, StructuredOutput: true, StructuredOutputKnown: true},
+		{ID: "unknown-capability", Provider: "p1", Status: catalog.Active, Admitted: true, AutoRoutable: true},
 		{ID: "not-active", Provider: "p1", Status: catalog.Unknown, AutoRoutable: true, StructuredOutput: true, StructuredOutputKnown: true},
 	}}, map[string]bool{})
 	rt := &Runtime{ReviewerSelection: runtime.NewReviewerSelection()}

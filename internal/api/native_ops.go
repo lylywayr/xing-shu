@@ -10,11 +10,12 @@ import (
 )
 
 type OpsState struct {
-	mu            sync.RWMutex
-	Disabled      map[string]bool
-	CooldownUntil map[string]time.Time
-	SyncErrors    map[string]SyncError
-	path          string
+	mu             sync.RWMutex
+	Disabled       map[string]bool
+	CooldownUntil  map[string]time.Time
+	SyncErrors     map[string]SyncError
+	path           string
+	clearCooldowns func()
 }
 
 type SyncError struct {
@@ -25,6 +26,11 @@ type SyncError struct {
 
 func NewOps() *OpsState {
 	return &OpsState{Disabled: map[string]bool{}, CooldownUntil: map[string]time.Time{}, SyncErrors: map[string]SyncError{}}
+}
+func (o *OpsState) SetCooldownClearer(clearer func()) {
+	o.mu.Lock()
+	o.clearCooldowns = clearer
+	o.mu.Unlock()
 }
 func (o *OpsState) Load(path string) {
 	o.mu.Lock()
@@ -98,6 +104,9 @@ func (o *OpsState) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	o.mu.Unlock()
+	if path == "/api/admin/cooldowns/clear" && o.clearCooldowns != nil {
+		o.clearCooldowns()
+	}
 	o.persist()
 	writeJSON(w, map[string]any{"ok": true, "action": r.URL.Path, "provider": id})
 }

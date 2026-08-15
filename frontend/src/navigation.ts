@@ -11,6 +11,7 @@ export const navGroups: NavGroup[] = [
     { key: 'resources', label: '资源池', icon: '◫', description: 'Provider 状态' },
     { key: 'integrations', label: '外部集成', icon: '⇄', description: 'FreeLLMAPI' },
     { key: 'catalog', label: '模型目录', icon: '▦', description: '模型与能力' },
+    { key: 'api-access', label: 'API 接入', icon: '⌁', description: '地址与客户端密钥' },
   ] },
   { label: '路由治理', items: [
     { key: 'routing', label: '路由中心', icon: '◎', description: 'Explain 与决策' },

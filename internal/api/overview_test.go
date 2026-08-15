@@ -22,7 +22,7 @@ func TestOverviewViewAggregatesLiveState(t *testing.T) {
 	if err := os.WriteFile(alerts, []byte(`{"level":"warning","message":"test"}`+"\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "m1", Provider: "p1", Status: catalog.Active, AutoRoutable: true}}}, nil)
+	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "m1", Provider: "p1", Status: catalog.Active, Admitted: true, AutoRoutable: true}}}, nil)
 	ops := NewOps()
 	ops.Disabled["p1"] = true
 	runtime := ProviderRuntime{Configs: map[string]provider.Config{"p1": {ID: "p1", Kind: "credit"}}, Manager: manager, Ops: ops}

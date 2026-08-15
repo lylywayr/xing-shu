@@ -10,7 +10,7 @@ import (
 
 func TestExternalIntegrationGateBlocksCallsAndAutoSelection(t *testing.T) {
 	gate := false
-	s := Service{ProviderGate: map[string]func() bool{"freellmapi": func() bool { return gate }}, Providers: map[string]ProviderConfig{"freellmapi": {ID: "freellmapi", BaseURL: "http://x"}}, Models: []catalog.Model{{ID: "m", Provider: "freellmapi", Status: catalog.Active, AutoRoutable: true, Score: 100}}}
+	s := Service{ProviderGate: map[string]func() bool{"freellmapi": func() bool { return gate }}, Providers: map[string]ProviderConfig{"freellmapi": {ID: "freellmapi", BaseURL: "http://x"}}, Models: []catalog.Model{{ID: "m", Provider: "freellmapi", Status: catalog.Active, Admitted: true, AutoRoutable: true, Score: 100}}}
 	if s.SelectAuto([]byte(`{"model":"auto","messages":[]}`)) != "" {
 		t.Fatal("disabled external integration selected")
 	}
@@ -32,7 +32,7 @@ func TestDynamicQuotaOnlyExcludesExplicitlyExhausted(t *testing.T) {
 	}
 }
 func TestSelectAutoOnlyAllow(t *testing.T) {
-	s := Service{Models: []catalog.Model{{ID: "unknown", Provider: "p", Status: catalog.Unknown, AutoRoutable: false}, {ID: "ok", Provider: "p", Status: catalog.Active, AutoRoutable: true, Score: 5}}, Providers: map[string]ProviderConfig{"p": {ID: "p", BaseURL: "http://x"}}}
+	s := Service{Models: []catalog.Model{{ID: "unknown", Provider: "p", Status: catalog.Unknown, AutoRoutable: false}, {ID: "ok", Provider: "p", Status: catalog.Active, Admitted: true, AutoRoutable: true, Score: 5}}, Providers: map[string]ProviderConfig{"p": {ID: "p", BaseURL: "http://x"}}}
 	if s.SelectAuto([]byte(`{"model":"auto","messages":[]}`)) != "ok" {
 		t.Fatal("selected non-active model")
 	}
@@ -41,6 +41,13 @@ func TestUnknownRejected(t *testing.T) {
 	s := Service{Models: []catalog.Model{{ID: "unknown", Status: catalog.Unknown, AutoRoutable: false}}}
 	if s.HasModel("unknown") {
 		t.Fatal("unknown model allowed")
+	}
+}
+
+func TestNeedsDetectsVisionInput(t *testing.T) {
+	body := []byte(`{"messages":[{"role":"user","content":[{"type":"text","text":"describe"},{"type":"image_url","image_url":{"url":"data:image/png;base64,x"}}]}]}`)
+	if got := Needs(body); got != "vision" {
+		t.Fatalf("want vision, got %s", got)
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 func ModelsResponse(c catalog.Catalog) map[string]any {
 	data := []catalog.Model{{ID: "auto", Provider: "xing-shu", Object: "model", OwnedBy: "xing-shu", Created: 0, AutoRoutable: true, Capabilities: []string{"general", "quick", "code_generation", "reasoning", "long_context", "multimodal"}}}
 	for _, m := range c.Models {
-		if m.AutoRoutable && m.Status == catalog.Active && !catalog.IsMeta(m.ID) {
+		if m.Admitted && m.AutoRoutable && m.Status == catalog.Active && !catalog.IsMeta(m.ID) {
 			data = append(data, m)
 		}
 	}

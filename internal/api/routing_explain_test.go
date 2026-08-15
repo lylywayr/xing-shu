@@ -14,8 +14,8 @@ import (
 
 func TestRoutingExplainReportsRequestAndScoreBreakdown(t *testing.T) {
 	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{
-		{ID: "tools-a", Provider: "p1", Status: catalog.Active, AutoRoutable: true, Tools: true, Score: 80, Capabilities: []string{"tools"}},
-		{ID: "text-b", Provider: "p1", Status: catalog.Active, AutoRoutable: true, Score: 70},
+		{ID: "tools-a", Provider: "p1", Status: catalog.Active, Admitted: true, AutoRoutable: true, Tools: true, Score: 80, Capabilities: []string{"tools"}},
+		{ID: "text-b", Provider: "p1", Status: catalog.Active, Admitted: true, AutoRoutable: true, Score: 70},
 		{ID: "disabled-c", Provider: "p2", Status: catalog.Disabled, AutoRoutable: false, Score: 90},
 	}}, nil)
 	service := &routing.Service{Providers: map[string]routing.ProviderConfig{"p1": {ID: "p1", BaseURL: "http://p1"}, "p2": {ID: "p2", BaseURL: "http://p2"}}, Manager: manager, Knowledge: runtime.NewKnowledgeStore()}
@@ -53,7 +53,7 @@ func TestRoutingExplainRejectsInvalidJSON(t *testing.T) {
 }
 
 func TestRoutingExplainKeepsGETItemsContract(t *testing.T) {
-	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "m1", Provider: "p1", Status: catalog.Active, AutoRoutable: true}}}, nil)
+	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "m1", Provider: "p1", Status: catalog.Active, Admitted: true, AutoRoutable: true}}}, nil)
 	service := &routing.Service{Providers: map[string]routing.ProviderConfig{"p1": {ID: "p1", BaseURL: "http://p1"}}, Manager: manager}
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/routing/explain", nil)
 	w := httptest.NewRecorder()
@@ -69,8 +69,8 @@ func TestRoutingExplainMatchesSelectAutoKnowledgeBonus(t *testing.T) {
 	knowledge := runtime.NewKnowledgeStore()
 	knowledge.Upsert(runtime.Knowledge{ID: "trusted-tools", Signature: runtime.Signature(runtime.TaskFeatures{NeedsTools: true}), RecommendedModel: "m1", Status: runtime.KnowledgeTrusted, Confidence: 1, ValidatedSamples: 10, SuccessfulSamples: 10, ExpiresAt: &expires})
 	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{
-		{ID: "m1", Provider: "p1", Status: catalog.Active, AutoRoutable: true, Tools: true, Capabilities: []string{"tools"}, Score: 10},
-		{ID: "m2", Provider: "p1", Status: catalog.Active, AutoRoutable: true, Tools: true, Capabilities: []string{"tools"}, Score: 50},
+		{ID: "m1", Provider: "p1", Status: catalog.Active, Admitted: true, AutoRoutable: true, Tools: true, Capabilities: []string{"tools"}, Score: 10},
+		{ID: "m2", Provider: "p1", Status: catalog.Active, Admitted: true, AutoRoutable: true, Tools: true, Capabilities: []string{"tools"}, Score: 50},
 	}}, nil)
 	service := &routing.Service{Providers: map[string]routing.ProviderConfig{"p1": {ID: "p1", BaseURL: "http://p1"}}, Manager: manager, Knowledge: knowledge}
 	body := []byte(`{"model":"auto","messages":[{"role":"user","content":"use tools"}],"tools":[{"type":"function","function":{"name":"lookup"}}]}`)

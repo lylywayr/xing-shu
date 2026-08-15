@@ -16,7 +16,7 @@ func TestReviewerConnectionClassifiesSuccessfulStructuredResponse(t *testing.T) 
 		json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": map[string]any{"content": `{"ok":true}`}}}})
 	}))
 	defer upstream.Close()
-	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "teacher", Provider: "p1", Status: catalog.Active, AutoRoutable: true, StructuredOutput: true, StructuredOutputKnown: true}}}, nil)
+	manager := catalog.NewManager(catalog.Catalog{Models: []catalog.Model{{ID: "teacher", Provider: "p1", Status: catalog.Active, Admitted: true, AutoRoutable: true, StructuredOutput: true, StructuredOutputKnown: true}}}, nil)
 	runtime := &ReviewerConnectionRuntime{Configs: map[string]provider.Config{"p1": {ID: "p1", BaseURL: upstream.URL}}, Manager: manager}
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/reviewer/test", strings.NewReader(`{"provider":"p1","model":"teacher"}`))
 	w := httptest.NewRecorder()

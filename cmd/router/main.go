@@ -10,6 +10,7 @@ import (
 	"xing-shu/internal/api"
 	"xing-shu/internal/auth"
 	"xing-shu/internal/catalog"
+	"xing-shu/internal/clientkey"
 	"xing-shu/internal/governance"
 	"xing-shu/internal/integration"
 	"xing-shu/internal/observability"
@@ -106,13 +107,27 @@ func main() {
 	governanceRules := api.NewGovernanceRulesRuntime(manager, dir)
 	modelAdmissions := api.NewModelAdmissionRuntime(manager, dir)
 	reviewerConnection := &api.ReviewerConnectionRuntime{Configs: configs, ConfigSource: registry.Snapshot, Manager: manager}
-	routingService := &routing.Service{Providers: routing.ProviderConfigs(configs), ConfigSource: func() map[string]routing.ProviderConfig { return routing.ProviderConfigs(registry.Snapshot()) }, ProviderGate: map[string]func() bool{}, Models: manager.Snapshot().Models, Manager: manager, Disabled: ops, Client: provider.NewChatClient(), Knowledge: sharedRuntime.Knowledge}
+	routingHealth := routing.OpenHealth(filepath.Join(dir, "routing-health-xing-shu.json"), routing.HealthOptions{})
+	ops.SetCooldownClearer(routingHealth.Clear)
+	routingService := &routing.Service{Providers: routing.ProviderConfigs(configs), ConfigSource: func() map[string]routing.ProviderConfig { return routing.ProviderConfigs(registry.Snapshot()) }, ProviderGate: map[string]func() bool{}, Models: manager.Snapshot().Models, Manager: manager, Disabled: ops, Client: provider.NewChatClient(), Knowledge: sharedRuntime.Knowledge, Learning: sharedRuntime.Learning, Health: routingHealth}
 	if freeManager != nil {
 		routingService.ProviderGate[integration.FreeLLMAPIID] = freeManager.RouteEnabled
 	}
 	api.StartReviewWorkerOnce(syncCtx, sharedRuntime, manager, ops, 24*time.Hour)
 	api.StartShadowWorker(syncCtx, sharedRuntime, manager, ops, 24*time.Hour)
 	api.StartMaintenance(syncCtx, sharedRuntime)
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-syncCtx.Done():
+				return
+			case <-ticker.C:
+				routingService.ProbeRecovery(syncCtx)
+			}
+		}
+	}()
 	snap := governance.NewManager(filepath.Join(dir, "snapshots-xing-shu"))
 	_ = snap.SaveCatalog(manager.Snapshot())
 	quotaManager := quota.NewManager()
@@ -131,7 +146,12 @@ func main() {
 	}
 	providerRegistry := &api.ProviderRegistryRuntime{Registry: registry, Manager: manager}
 	registry.SetOnChanged(func() { manager.ReconcileProviders(registry.Snapshot()) })
-	s := &api.Server{Auth: adminAuthorizer(), Catalog: state.Catalog, Manager: manager, ProviderRuntime: providerRuntime, ProviderRegistry: providerRegistry, IntegrationRuntime: integrationRuntime, Ops: ops, ProbeRuntime: probe, ProbeBatchRuntime: probeBatch, GovernanceRules: governanceRules, ModelAdmissions: modelAdmissions, ReviewerConnection: reviewerConnection, GovernanceRuntime: &api.GovernanceRuntime{Snapshots: snap, Catalog: manager}, QuotaManager: quotaManager, QuotaRuntime: quotaRuntime, RuntimeLearning: sharedRuntime.Learning, Runtime: sharedRuntime, RoutingService: routingService, DataDir: dir, Governance: gov}
+	clientKeyStore, err := clientkey.Open(filepath.Join(dir, "client-keys-xing-shu.json"))
+	if err != nil {
+		log.Fatalf("load client API keys: %v", err)
+	}
+	clientKeys := &api.ClientKeys{Store: clientKeyStore, Audit: observability.New(dir)}
+	s := &api.Server{Auth: adminAuthorizer(), Catalog: state.Catalog, Manager: manager, ProviderRuntime: providerRuntime, ProviderRegistry: providerRegistry, IntegrationRuntime: integrationRuntime, Ops: ops, ProbeRuntime: probe, ProbeBatchRuntime: probeBatch, GovernanceRules: governanceRules, ModelAdmissions: modelAdmissions, ReviewerConnection: reviewerConnection, GovernanceRuntime: &api.GovernanceRuntime{Snapshots: snap, Catalog: manager}, QuotaManager: quotaManager, QuotaRuntime: quotaRuntime, RuntimeLearning: sharedRuntime.Learning, Runtime: sharedRuntime, RoutingService: routingService, ClientKeys: clientKeys, ClientKeyStore: clientKeyStore, PublicBaseURL: os.Getenv("XING_SHU_PUBLIC_BASE_URL"), DataDir: dir, Governance: gov}
 	mux := http.NewServeMux()
 	mux.Handle("/", staticHandler(http.FileServer(http.Dir("/app/web"))))
 	mux.Handle("/admin/ui", http.RedirectHandler("/", http.StatusFound))
@@ -139,11 +159,12 @@ func main() {
 	mux.Handle("/health", apiMux)
 	mux.Handle("/health/", apiMux)
 	mux.Handle("/api/", apiMux)
-	mux.Handle("/v1/models", api.NativeModelsManager(manager))
+	clientAuth := clientkey.Authenticator{Store: clientKeyStore}
+	mux.Handle("/v1/models", clientAuth.Middleware("models:read", api.NativeModelsManager(manager)))
 	if os.Getenv("XING_SHU_NATIVE_CHAT") != "false" {
 		ledger := quota.NewLedger()
 		ledger.Load(filepath.Join(dir, "quota-ledger-xing-shu.json"))
-		mux.Handle("/v1/chat/completions", &api.Chat{Router: routingService, Fallback: nil, Audit: observability.New(dir), Ledger: ledger, Runtime: sharedRuntime})
+		mux.Handle("/v1/chat/completions", clientAuth.Middleware("chat:write", &api.Chat{Router: routingService, Fallback: nil, Audit: observability.New(dir), Ledger: ledger, Runtime: sharedRuntime}))
 	}
 	mux.HandleFunc("/v1/", func(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) })
 	addr := os.Getenv("LISTEN")

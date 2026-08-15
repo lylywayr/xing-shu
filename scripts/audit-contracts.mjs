@@ -13,6 +13,8 @@ const endpoints = [
   { path: '/api/admin/overview', required: ['health', 'consistency', 'providers', 'recent', 'alerts', 'generated_at'] },
   { path: '/api/admin/consistency', required: ['catalog', 'governance', 'ok'] },
   { path: '/api/admin/models', required: ['models'] },
+  { path: '/api/admin/client-api/info', required: ['base_url', 'models_endpoint', 'chat_endpoint', 'authentication', 'mode', 'scopes'] },
+  { path: '/api/admin/client-keys', required: ['items', 'mode'] },
   { path: '/api/admin/providers', required: ['providers'] },
   { path: '/api/admin/provider-registry', required: ['items', 'credential_key_configured'] },
   { path: '/api/admin/probe/batch/history', required: ['items'] },

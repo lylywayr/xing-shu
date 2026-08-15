@@ -29,6 +29,8 @@ type Service struct {
 	Disabled      interface{ IsDisabled(string) bool }
 	Client        *provider.ChatClient
 	Knowledge     *runtime.KnowledgeStore
+	Learning      *runtime.Learning
+	Health        *Health
 }
 
 func (s *Service) providers() map[string]ProviderConfig {
@@ -45,41 +47,34 @@ func (s *Service) models() []catalog.Model {
 	return s.Models
 }
 
+func (s *Service) HealthSnapshot() []RouteHealth {
+	if s.Health == nil {
+		return []RouteHealth{}
+	}
+	return s.Health.Snapshot()
+}
 func (s *Service) SnapshotModels() []catalog.Model {
 	return append([]catalog.Model(nil), s.models()...)
 }
 func (s *Service) HasModel(name string) bool {
 	name = strings.TrimPrefix(name, "openai/")
+	providerID := ""
+	if slash := strings.Index(name, "/"); slash > 0 {
+		providerID, name = name[:slash], name[slash+1:]
+	}
 	for _, m := range s.models() {
-		if m.ID == name && m.AutoRoutable && s.HasProvider(m.Provider) {
+		if m.ID == name && (providerID == "" || m.Provider == providerID) && m.Admitted && m.AutoRoutable && s.HasProvider(m.Provider) {
 			return true
 		}
 	}
 	return false
 }
 func (s *Service) SelectAuto(body []byte) string {
-	need := Needs(body)
-	best := ""
-	score := -1
-
-	for _, m := range s.models() {
-		if !m.AutoRoutable || m.Status != catalog.Active {
-			continue
-		}
-		if !s.HasProvider(m.Provider) {
-			continue
-		}
-		x := m.Score
-		x += s.KnowledgeBonus(body, m)
-		if need != "general" && !has(m.Capabilities, need) {
-			continue
-		}
-		if x > score {
-			score = x
-			best = m.ID
-		}
+	candidates := s.RankedCandidates(body)
+	if len(candidates) == 0 {
+		return ""
 	}
-	return best
+	return candidates[0].Model
 }
 func (s *Service) KnowledgeBonus(body []byte, model catalog.Model) int {
 	if s.Knowledge == nil || HighRisk(body) {
@@ -113,8 +108,12 @@ func (s *Service) KnowledgeBonus(body []byte, model catalog.Model) int {
 
 func (s *Service) ProviderFor(name string) string {
 	name = strings.TrimPrefix(name, "openai/")
+	providerID := ""
+	if slash := strings.Index(name, "/"); slash > 0 {
+		providerID, name = name[:slash], name[slash+1:]
+	}
 	for _, m := range s.models() {
-		if m.ID == name {
+		if m.ID == name && (providerID == "" || m.Provider == providerID) {
 			return m.Provider
 		}
 	}
@@ -168,6 +167,10 @@ func (s *Service) Complete(ctx context.Context, body []byte, model string) (*htt
 		q.Model = model
 	}
 	name := strings.TrimPrefix(q.Model, "openai/")
+	requestedProvider := ""
+	if slash := strings.Index(name, "/"); slash > 0 {
+		requestedProvider, name = name[:slash], name[slash+1:]
+	}
 	if name == "auto" || name == "" {
 		name = s.SelectAuto(body)
 		if name == "" {
@@ -178,7 +181,7 @@ func (s *Service) Complete(ctx context.Context, body []byte, model string) (*htt
 	var p ProviderConfig
 	providers := s.providers()
 	for _, m := range s.models() {
-		if m.ID == name && m.AutoRoutable {
+		if m.ID == name && m.Admitted && m.AutoRoutable && (requestedProvider == "" || m.Provider == requestedProvider) {
 			p = providers[m.Provider]
 			break
 		}
@@ -208,19 +211,43 @@ func replaceModel(body []byte, name string) []byte {
 	b, _ := json.Marshal(x)
 	return b
 }
-func Needs(body []byte) string {
+func RequiredCapabilities(body []byte) []string {
 	var x struct {
 		Tools          []any `json:"tools"`
 		ResponseFormat any   `json:"response_format"`
+		Messages       []struct {
+			Content any `json:"content"`
+		} `json:"messages"`
 	}
 	_ = json.Unmarshal(body, &x)
+	needs := []string{}
 	if len(x.Tools) > 0 {
-		return "tools"
+		needs = append(needs, "tools")
 	}
 	if x.ResponseFormat != nil {
-		return "structured_output"
+		needs = append(needs, "structured_output")
 	}
-	return "general"
+	vision := false
+	for _, message := range x.Messages {
+		if parts, ok := message.Content.([]any); ok {
+			for _, part := range parts {
+				if item, ok := part.(map[string]any); ok && (item["type"] == "image_url" || item["type"] == "input_image") {
+					vision = true
+				}
+			}
+		}
+	}
+	if vision {
+		needs = append(needs, "vision")
+	}
+	return needs
+}
+func Needs(body []byte) string {
+	needs := RequiredCapabilities(body)
+	if len(needs) == 0 {
+		return "general"
+	}
+	return needs[0]
 }
 func has(a []string, x string) bool {
 	for _, v := range a {
