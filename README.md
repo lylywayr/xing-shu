@@ -94,7 +94,7 @@ Dockerfile 使用标准 Node/Go 多阶段构建；iSH ARM64 上的本地 Vitest/
 模型接入采用明确的双轨策略：
 
 - **FreeLLMAPI**：发现的模型全部自动进入可路由模型池；FreeLLMAPI 的独立生产路由开关仍然是最终调用闸门；
-- **其他 Provider**：只发现和验证模型，模型默认保持 `unknown`、不可路由；必须由用户在“能力治理”中逐个明确批准后，才变为 `active` 并进入 Auto；再次同步和重启不会绕过该选择。
+- **其他 Provider**：只发现和验证模型，模型默认保持 `unknown`、不可路由；在资源池点击“同步模型”后会展开该 Provider 的模型清单，由用户勾选并确认接入。已选模型变为 `active` 并进入 Auto，取消选择则恢复为 `unknown`；再次同步和重启不会绕过该选择。
 
 环境变量 Provider 在控制台中标记为只读。停用或删除动态 Provider 后，历史模型保留为 `stale/orphaned` 且立即退出 Auto。FreeLLMAPI 仍是独立模块，不纳入通用注册中心。
 

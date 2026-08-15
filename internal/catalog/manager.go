@@ -200,6 +200,10 @@ func (m *Manager) SetAllow(providerID, modelID string, allowed bool) bool {
 			m.Current.Models[i].Status = Active
 			m.Current.Models[i].UpdatedAt = time.Now().UTC()
 		}
+		if !allowed && m.Current.Models[i].Status == Active && !IsAutoApprovedProvider(providerID) {
+			m.Current.Models[i].Status = Unknown
+			m.Current.Models[i].UpdatedAt = time.Now().UTC()
+		}
 		m.Current.Models[i].AutoRoutable = allowed && m.Current.Models[i].Status == Active
 		changed = true
 	}

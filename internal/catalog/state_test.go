@@ -35,6 +35,13 @@ func TestSetAllowActivatesUnknownModel(t *testing.T) {
 	if model.Status != Active || !model.AutoRoutable {
 		t.Fatalf("approved model did not become routable: %+v", model)
 	}
+	if !manager.SetAllow("p", "m", false) {
+		t.Fatal("expected model rejection to change the catalog")
+	}
+	model = manager.Snapshot().Models[0]
+	if model.Status != Unknown || model.AutoRoutable {
+		t.Fatalf("rejected model did not return to pending: %+v", model)
+	}
 }
 
 func TestApplyDefaultApprovalPolicyMigratesOnlyFreeLLMAPI(t *testing.T) {
